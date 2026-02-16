@@ -24,36 +24,26 @@ func main() {
 	wClient := weather.NewClient()
 	mux := http.NewServeMux()
 
-	//Moved Dashboard to microservice. Frontend should be seperated anyways.
-
-	// --- 2. OTHER SYSTEM ROUTES ---
-	mux.Handle("/metrics", promhttp.Handler())
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("GET /metrics", promhttp.Handler())
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"up"}`))
 	})
 
-	// --- 3. PARAMETERIZED WEATHER ROUTE ---
-	// Registering this last ensures it doesn't "eat" the other routes.
-	mux.HandleFunc("/weather/{location}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /weather/{location}", func(w http.ResponseWriter, r *http.Request) {
 		location := r.PathValue("location")
 
-		// Guardrail
-		if location == "dashboard" || location == "metrics" || location == "health" {
-			http.NotFound(w, r)
-			return
-		}
-
-		ctx := r.Context()
-		if r.Header.Get("X-Chaos-Mode") == "true" {
-			ctx = context.WithValue(ctx, "chaos_trigger", "true")
-		}
+		// Inject Chaos Header into Context using the type-safe Key
+		chaosHeader := r.Header.Get("X-Chaos-Mode")
+		ctx := context.WithValue(r.Context(), weather.ChaosTriggerKey, chaosHeader)
 
 		data, err := wClient.GetWeather(ctx, location)
 		if err != nil {
-			http.Error(w, "internal service error", 500)
+			slog.Warn("Request failed (Chaos or Upstream)", "error", err, "location", location)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(data)
 	})
@@ -67,8 +57,10 @@ func main() {
 	signal.Notify(stop, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		slog.Info("server starting", "port", 8080)
-		srv.ListenAndServe()
+		slog.Info("SRE Weather API Starting", "port", 8080)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			os.Exit(1)
+		}
 	}()
 
 	<-stop
@@ -80,12 +72,14 @@ func observabilityMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		traceID := uuid.New().String()
-		w.Header().Set("X-Correlation-ID", traceID)
 
-		next.ServeHTTP(w, r)
+		w.Header().Set("X-Correlation-ID", traceID)
+		ctx := context.WithValue(r.Context(), "trace_id", traceID)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
 
 		obs.HttpRequestDuration.WithLabelValues(r.URL.Path).Observe(time.Since(start).Seconds())
-		obs.HttpRequestsTotal.WithLabelValues("200", r.URL.Path).Inc()
-		slog.Info("request", "path", r.URL.Path, "trace_id", traceID)
+		obs.HttpRequestsTotal.WithLabelValues("N/A", r.URL.Path).Inc()
+		slog.Info("processed", "path", r.URL.Path, "trace_id", traceID, "latency", time.Since(start))
 	})
 }
