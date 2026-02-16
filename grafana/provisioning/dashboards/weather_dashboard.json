@@ -1,0 +1,38 @@
+{
+    "title": "Weather Service: Maximum Observability",
+    "panels": [
+      {
+        "title": "Requests per Second (Throughput)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+        "targets": [{ "expr": "sum(rate(weather_service_http_requests_total[1m]))", "legendFormat": "Total RPS" }]
+      },
+      {
+        "title": "Error Rate by Type (4xx vs 5xx)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+        "targets": [
+          { "expr": "sum(rate(weather_service_http_requests_total{code=~'5..'}[1m]))", "legendFormat": "5xx Errors (Server)" },
+          { "expr": "sum(rate(weather_service_http_requests_total{code=~'4..'}[1m]))", "legendFormat": "4xx Errors (Client)" }
+        ]
+      },
+      {
+        "title": "P99 Latency",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+        "targets": [{ "expr": "histogram_quantile(0.99, sum(rate(weather_service_http_request_duration_seconds_bucket[1m])) by (le))", "legendFormat": "P99 (s)" }]
+      },
+      {
+        "title": "Memory Usage (Heap In-Use)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+        "targets": [{ "expr": "go_memstats_heap_inuse_bytes", "legendFormat": "Heap Bytes" }]
+      },
+      {
+        "title": "Goroutines (Concurrency)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+        "targets": [{ "expr": "go_goroutines", "legendFormat": "Goroutines" }]
+      }
+    ]
+  }

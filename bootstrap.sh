@@ -1,52 +1,77 @@
 #!/bin/bash
+set -e
 
-# Principal SRE Bootstrap Script (Microservices Edition)
-# Purpose: Orchestrates the API, Frontend, and Observability stack.
+# --- SRE COLOR PALETTE ---
+GREEN='\033[1;32m'
+BLUE='\033[1;34m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
 
-set -e # Exit on any error
+echo -e "${BLUE}=================================================${NC}"
+echo -e "${BLUE}   🚀 WEATHER SERVICE SRE BOOTSTRAP PROTOCOL   ${NC}"
+echo -e "${BLUE}=================================================${NC}"
 
-echo "🚀 Starting Weather Microservices Bootstrap..."
+# 1. DESTRUCTIVE CLEANUP
+# We remove volumes to reset Prometheus/Grafana state for a clean test run.
+echo -e "\n${YELLOW}🧹 [PHASE 1] SANITIZING ENVIRONMENT...${NC}"
+docker-compose down --volumes --remove-orphans
+# Force remove the image to guarantee a rebuild from source
+docker rmi sezzleinterview-weather-service:latest 2>/dev/null || true
+echo -e "${GREEN}   ✔ Environment Cleaned${NC}"
 
-# 1. Environment Validation
-echo "🔍 Checking prerequisites..."
-command -v go >/dev/null 2>&1 || { echo >&2 "❌ Go is not installed."; exit 1; }
-command -v docker >/dev/null 2>&1 || { echo >&2 "❌ Docker is not installed."; exit 1; }
+# 2. COMPILATION & BUILD
+# We use --no-cache to guarantee the latest Go code is compiled.
+echo -e "\n${YELLOW}🏗️  [PHASE 2] BUILDING IMAGES (NO-CACHE)...${NC}"
+docker-compose build --no-cache weather-service
+echo -e "${GREEN}   ✔ Build Complete${NC}"
 
-# 2. Dependency Management
-echo "📦 Tidying Go modules (Target: Go 1.23)..."
-go mod tidy
+# 3. DEPLOYMENT
+echo -e "\n${YELLOW}🚀 [PHASE 3] STARTING STACK...${NC}"
+docker-compose up -d
+echo -e "${GREEN}   ✔ Containers Launched${NC}"
 
-# 3. Clean State Enforcement
-echo "🧹 Cleaning up existing containers and networks..."
-docker-compose down --remove-orphans
+# 4. HEALTH CHECK LOOP
+# We poll the API to ensure the binary actually started successfully.
+echo -e "\n${YELLOW}⏳ [PHASE 4] WAITING FOR HEALTH CHECKS...${NC}"
+attempt=0
+max_attempts=30
 
-# 4. Multi-Service Build and Launch
-echo "🏗️ Building and launching distributed stack..."
-# We use --build to ensure the Go binary is recompiled with any recent changes
-docker-compose up --build -d
-
-# 5. Health Verification
-echo "⏳ Waiting for API to become healthy..."
-MAX_RETRIES=10
-COUNT=0
-until $(curl -sf http://localhost:8080/health > /dev/null); do
-    if [ $COUNT -eq $MAX_RETRIES ]; then
-      echo "❌ API failed to start in time."
-      exit 1
+while [ $attempt -le $max_attempts ]; do
+    if curl -s "http://localhost:8080/health" | grep -q "up"; then
+        echo -e "${GREEN}   ✔ Weather API is HEALTHY (Port 8080)${NC}"
+        break
     fi
-    printf '.'
-    sleep 2
-    COUNT=$((COUNT+1))
+    
+    attempt=$(( attempt + 1 ))
+    if [ $attempt -eq $max_attempts ]; then
+        echo -e "${RED}❌ TIMEOUT: Weather API failed to start.${NC}"
+        docker-compose logs weather-service | tail -n 10
+        exit 1
+    fi
+    
+    printf "."
+    sleep 1
 done
 
-echo -e "\n--------------------------------------------------------"
-echo "✅ BOOTSTRAP SUCCESSFUL"
-echo "--------------------------------------------------------"
-echo "🌐 FRONTEND DASHBOARD: http://localhost:8081"
-echo "📡 WEATHER API:        http://localhost:8080/weather/lubbock"
-echo "📊 METRICS (RAW):      http://localhost:8080/metrics"
-echo "🔥 PROMETHEUS ALERTS:  http://localhost:9090/alerts"
-echo "📈 GRAFANA SIGNALS:    http://localhost:3000"
-echo "--------------------------------------------------------"
-echo "📝 To view logs: 'docker-compose logs -f weather-service'"
-echo "🧪 To run chaos: './chaos_test.sh'"
+# 5. COMMAND CENTER OUTPUT
+echo -e "\n${BLUE}=================================================${NC}"
+echo -e "${BLUE}   ✨ SRE COMMAND CENTER - ALL SYSTEMS GO   ${NC}"
+echo -e "${BLUE}=================================================${NC}"
+
+echo -e "\n${CYAN}🎯 MAIN DASHBOARD HUB (START HERE)${NC}"
+echo -e "   ► URL:            http://localhost:8081"
+echo -e "   (Links to all other tools from one central UI)"
+
+echo -e "\n${CYAN}🛠️  INDIVIDUAL SERVICE LINKS${NC}"
+echo -e "   ► Grafana:        http://localhost:3000"
+echo -e "     (User: admin / Pass: admin)"
+echo -e "   ► Prometheus:     http://localhost:9090/alerts"
+echo -e "   ► Weather API:    http://localhost:8080/weather/lubbock"
+
+echo -e "\n${CYAN}💥 CHAOS ENGINEERING${NC}"
+echo -e "   ► Trigger 500:    http://localhost:8080/weather/lubbock?chaos=true"
+echo -e "   ► Run Test Suite: ${YELLOW}./chaos_test.sh${NC}"
+
+echo -e "${BLUE}=================================================${NC}"

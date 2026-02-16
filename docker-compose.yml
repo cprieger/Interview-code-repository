@@ -6,7 +6,7 @@ services:
 
   dashboard-ui:
     image: nginx:alpine
-    volumes: ["./frontend:/usr/share/nginx/html"]
+    volumes: ["./dashboard:/usr/share/nginx/html"]
     ports: ["8081:80"]
     networks: [monitoring]
 
