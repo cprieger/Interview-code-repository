@@ -27,20 +27,10 @@ func observabilityMiddleware(next http.Handler) http.Handler {
 		}
 		w.Header().Set("X-Correlation-ID", traceID)
 
-		// Detect Chaos Header at the absolute edge
-		chaos := r.Header.Get("X-Chaos-Mode")
-
 		ctx := context.WithValue(r.Context(), "trace_id", traceID)
-		ctx = context.WithValue(ctx, weather.ChaosTriggerKey, chaos)
-
-		if chaos == "true" {
-			slog.Warn("!!! EDGE INTERCEPT: Chaos Header Detected !!!", "trace_id", traceID)
-		}
-
 		next.ServeHTTP(w, r.WithContext(ctx))
 
-		duration := time.Since(start)
-		obs.HttpRequestDuration.WithLabelValues(r.URL.Path).Observe(duration.Seconds())
+		obs.HttpRequestDuration.WithLabelValues(r.URL.Path).Observe(time.Since(start).Seconds())
 		obs.HttpRequestsTotal.WithLabelValues("N/A", r.URL.Path).Inc()
 	})
 }
@@ -54,7 +44,6 @@ func main() {
 
 	mux.Handle("GET /metrics", promhttp.Handler())
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"up"}`))
 	})
@@ -62,9 +51,19 @@ func main() {
 	mux.HandleFunc("GET /weather/{location}", func(w http.ResponseWriter, r *http.Request) {
 		location := r.PathValue("location")
 
-		data, err := wClient.GetWeather(r.Context(), location)
+		// --- THE FIX: DIRECT INJECTION ---
+		chaosHeader := r.Header.Get("X-Chaos-Mode")
+
+		// We create a fresh context here to guarantee propagation to the client
+		ctx := context.WithValue(r.Context(), weather.ChaosTriggerKey, chaosHeader)
+
+		if chaosHeader == "true" {
+			slog.Warn("!!! HANDLER LEVEL: Chaos Header Detected !!!", "location", location)
+		}
+
+		data, err := wClient.GetWeather(ctx, location)
 		if err != nil {
-			slog.Error("request failed", "error", err, "location", location)
+			slog.Error("Intercepted Error", "error", err)
 			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprint(w, err.Error())
@@ -82,14 +81,10 @@ func main() {
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-
 	go func() {
-		slog.Info("SRE API Live", "port", 8080)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			os.Exit(1)
-		}
+		slog.Info("API Live", "port", 8080)
+		srv.ListenAndServe()
 	}()
-
 	<-stop
 	srv.Shutdown(context.Background())
 }

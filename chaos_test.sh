@@ -5,13 +5,16 @@ URL="http://localhost:8080/weather/lubbock"
 
 echo "🔍 VERIFYING END-TO-END PROPAGATION..."
 
-# We use -H "X-Chaos-Mode: true" and check the status
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "X-Chaos-Mode: true" "$URL")
+# Force no-cache and provide the chaos header
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+  -H "X-Chaos-Mode: true" \
+  -H "Cache-Control: no-cache" \
+  "$URL")
 
 if [ "$STATUS" -eq 500 ]; then
     echo "✅ SUCCESS: Chaos Mode verified (Received 500)"
 else
-    echo "❌ FAILURE: Received $STATUS. Checking logs..."
-    docker-compose logs weather-service | grep "Chaos"
+    echo "❌ FAILURE: Received $STATUS. Dumping logs:"
+    docker-compose logs weather-service | tail -n 20
     exit 1
 fi
