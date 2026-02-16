@@ -60,6 +60,24 @@ func main() {
 		}
 	}()
 
+	// Simple Dashboard Endpoint
+	mux.HandleFunc("GET /dashboard$", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		fmt.Fprint(w, `
+			<html>
+				<body style="font-family: sans-serif; padding: 20px; background: #f4f4f9;">
+					<h1>Weather SRE Dashboard</h1>
+					<div id="root">
+						<h3>Service Metrics</h3>
+						<iframe src="http://localhost:9090/graph" width="100%" height="400"></iframe>
+						<h3>Active Alerts</h3>
+						<iframe src="http://localhost:9090/alerts" width="100%" height="400"></iframe>
+					</div>
+				</body>
+			</html>
+		`)
+	})
+
 	<-done // Wait for CTRL+C or SIGTERM
 	logger.Info("shutting down weather service")
 

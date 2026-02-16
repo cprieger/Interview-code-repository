@@ -1,17 +1,10 @@
 global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+  scrape_interval: 5s # Fast scrape for demo purposes
 
 rule_files:
   - "alert_rules.yml"
 
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets:
-          - alertmanager:9093
-
 scrape_configs:
   - job_name: 'weather-service'
     static_configs:
-      - targets: ['localhost:8080']
+      - targets: ['weather-service:8080']

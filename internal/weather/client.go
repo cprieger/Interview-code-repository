@@ -33,7 +33,7 @@ func NewClient() *Client {
 }
 
 func (c *Client) GetWeather(ctx context.Context, location string) (*WeatherData, error) {
-	// 1. Check Cache [cite: 48]
+	// 1. Check Cache [cite: 14, 48]
 	if val, ok := c.cache.Load(location); ok {
 		data := val.(WeatherData)
 		data.Cached = true
@@ -44,12 +44,16 @@ func (c *Client) GetWeather(ctx context.Context, location string) (*WeatherData,
 	obs.CacheMisses.Inc()
 	var data WeatherData
 
-	// 2. Fetch with Retries [cite: 46]
+	// 2. Fetch with Retries (Exponential Backoff) [cite: 16, 46]
 	err := c.retry(ctx, 3, 500*time.Millisecond, func() error {
-		// Using Open-Meteo Public API (Lubbock, TX coordinates as default for example)
+		// Public API: No Key Required. Hardcoded to Lubbock, TX coordinates for this example.
 		url := "https://api.open-meteo.com/v1/forecast?latitude=33.57&longitude=-101.85&current=temperature_2m,relative_humidity_2m,wind_speed_10m"
 		
-		req, _ := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return err
+		}
+
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			return err
@@ -62,7 +66,6 @@ func (c *Client) GetWeather(ctx context.Context, location string) (*WeatherData,
 
 		body, _ := io.ReadAll(resp.Body)
 		
-		// Map the public API response to our struct [cite: 24, 25]
 		var result struct {
 			Current struct {
 				Temp     float64 `json:"temperature_2m"`
@@ -77,7 +80,7 @@ func (c *Client) GetWeather(ctx context.Context, location string) (*WeatherData,
 
 		data = WeatherData{
 			Temperature: result.Current.Temp,
-			Conditions:  "Public API Live Data",
+			Conditions:  "Live Data (Open-Meteo)",
 			Humidity:    result.Current.Humidity,
 			WindSpeed:   result.Current.Wind,
 			Cached:      false,
@@ -89,6 +92,7 @@ func (c *Client) GetWeather(ctx context.Context, location string) (*WeatherData,
 		return nil, err
 	}
 
+	// 3. Store in cache [cite: 14, 48]
 	c.cache.Store(location, data)
 	return &data, nil
 }
