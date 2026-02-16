@@ -1,91 +1,77 @@
-Since I can't generate a direct file download for you, I’m providing the **README.md** in a single, clean code block below. You can click the "Copy" button in the top right of the block and save it as `README.md` in your project root.
+# Weather Service SRE Edition 🌩️
 
-This version is specifically crafted to address the **Principal SRE** requirements, highlighting **Observability**, **Reliability**, and **Operational Excellence**.
+A production-grade Go microservice demonstrating **Site Reliability Engineering (SRE)** best practices: Observability, Chaos Engineering, and Infrastructure as Code.
 
+## 🚀 Quick Start (The "One-Click" Deploy)
 
-# Weather Alert Service
+We use a unified bootstrap protocol to clean, build, and verify the entire stack.
 
-A production-ready Go backend service designed with a focus on **Operational Excellence**, **High Reliability**, and **Comprehensive Observability**.
-
-
-
-## 🚀 Architecture & Philosophy
-[cite_start]This service is built using a clean, layered architecture to ensure maintainability and testability[cite: 18].
-* [cite_start]**Defensive Engineering:** Every external call is wrapped in a retry mechanism with exponential backoff and explicit context-based timeouts[cite: 46, 47].
-* [cite_start]**The RED Method:** Instrumented with Prometheus to track **R**ate, **E**rrors, and **D**uration for all public endpoints[cite: 32, 34].
-* [cite_start]**Cache-Aside Pattern:** Implements an in-memory cache to reduce upstream pressure and improve latency, including operational metrics to monitor cache efficiency[cite: 26, 48].
-
-## 🛠 Prerequisites
-* [cite_start]**Go 1.22+**: Core programming language[cite: 4].
-* [cite_start]**Make**: For build and test automation[cite: 56].
-* **Docker**: Recommended for running sidecar services like Prometheus.
-
-## 🚦 Getting Started
-1. **Initialize and Build:**
-   ```bash
-   make build
-
-```
-
-2. **Run the Service:**
 ```bash
-# Replace with your actual key or use the mock default
-WEATHER_API_KEY="your_api_key" make run
+# 1. Make the script executable
+chmod +x bootstrap.sh
 
+# 2. Launch the stack
+./bootstrap.sh
 ```
 
+Once the script completes, open the **Control Plane**:
+👉 **[http://localhost:8081](http://localhost:8081)**
 
-3. **Test the Endpoints:**
-* 
-**Weather:** `curl http://localhost:8080/weather/austin` 
+## 🏗️ Architecture
 
+The system is composed of four Docker containers orchestrated via Compose:
 
-* 
-**Health:** `curl http://localhost:8080/health` 
+| Service | Port | Description |
+| :--- | :--- | :--- |
+| **Weather API** | `8080` | Go-based microservice with SRE Middleware. |
+| **Prometheus** | `9090` | Metrics scraper with 5s resolution & Alert Rules. |
+| **Grafana** | `3000` | Visualization with pre-provisioned Golden Signal dashboards. |
+| **Dashboard UI** | `8081` | Nginx-based central hub for navigation. |
 
+## 💥 Chaos Engineering
 
-* 
-**Metrics:** `curl http://localhost:8080/metrics` 
+This service has built-in **Fault Injection** capabilities to test resilience and alerting.
 
+### Triggering a Fault
+You can force a **500 Internal Server Error** (simulating an upstream outage) without bringing down the container:
 
+* **Method A (Query Param):**
+    `GET http://localhost:8080/weather/lubbock?chaos=true`
+* **Method B (Header):**
+    `curl -H "X-Chaos-Mode: true" http://localhost:8080/weather/lubbock`
 
+### Running the Validation Suite
+We include a script that generates traffic patterns (Normal, 404s, and 500s) to prove observability:
 
+```bash
+./chaos_test.sh
+```
 
-## 📊 Observability & Metrics
+## 📊 Observability & Alerts
 
-The service exposes metrics at `/metrics` in a Prometheus-compatible format.
+We track the **Four Golden Signals** plus Runtime Metrics.
 
-### Key Metrics Tracked:
+### 🚨 Alert Rules (`prometheus/alert_rules.yml`)
+* **`API_Server_Errors_High`**: >10% of requests are 5xx errors.
+* **`API_Client_Errors_High`**: >10% of requests are 4xx errors.
+* **`API_Latency_High`**: P99 Latency exceeds 500ms.
+* **`System_Memory_High`**: Heap usage exceeds 50MB.
+* **`System_Goroutines_High`**: Goroutine count spike detection.
 
-| Metric Name | Type | Purpose |
-| --- | --- | --- |
-| `weather_service_http_requests_total` | Counter | Tracks request volume and error rates (RED: Rate/Errors).
+### 📈 Grafana Dashboards
+* **Global Error Rate %**: The "Oh No" graph.
+* **Throughput (RPS)**: Traffic volume.
+* **Latency Heatmap**: P99 vs P50 distribution.
+* **Runtime Stats**: Memory & CPU saturation.
 
- |
-| `weather_service_http_request_duration_seconds` | Histogram | Tracks request latency percentiles (RED: Duration).
+## 📂 Project Structure
 
- |
-| `weather_service_cache_hits_total` | Counter | Monitors cache efficiency and upstream cost.
-
- |
-
-### Alerting Strategy
-
-The included `alert_rules.yml` defines critical SRE alerts for paging with services like PagerDuty:
-
-* **High Error Rate (Critical):** Paging alert if  of requests fail over a 5-minute window.
-* **Latency Breach (Warning):** Warning if the **P99** latency exceeds .
-* **Low Cache Hit Rate (Info):** Notifies when the cache is not providing expected offload for the upstream API.
-
-## 🛡 Reliability Patterns
-
-* 
-**Graceful Shutdown:** Listens for `SIGINT`/`SIGTERM` and allows active requests time to finish before exiting.
-
-
-* 
-**Correlation IDs:** Every request is assigned a unique UUID (returned in the `X-Correlation-ID` header) to allow for request tracing across logs.
-
-
-* 
-**Structured Logging:** All logs are in JSON format, enriched with service context and trace IDs for ELK/Loki ingestion.
+```text
+├── cmd/server/         # Application Entrypoint (Middleware & Routing)
+├── internal/weather/   # Business Logic (Client & Caching)
+├── prometheus/         # Alert Rules & Scrape Configs
+├── grafana/            # JSON Dashboards & Datasource Provisioning
+├── dashboard/          # HTML/CSS for the Control Plane UI
+├── bootstrap.sh        # Deployment Automation
+└── chaos_test.sh       # SRE Validation Suite
+```

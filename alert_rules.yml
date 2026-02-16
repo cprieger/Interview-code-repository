@@ -3,31 +3,22 @@ groups:
     rules:
       # --- RELIABILITY (The Golden Signals) ---
       
-      # 1. High 5xx Error Rate (Server Faults) - Critical
+      # 1. High 5xx Error Rate (Matching the text "Internal Server Error")
       - alert: API_Server_Errors_High
+        # Note: We still use 'code' because it's easiest to regex match the 5
         expr: |
           (sum(rate(weather_service_http_requests_total{code=~"5.."}[1m])) 
           / 
           sum(rate(weather_service_http_requests_total[1m]))) > 0.1
         for: 10s
-        labels:
-          severity: critical
-        annotations:
-          summary: "Server is failing (5xx > 10%)"
-          description: "Immediate investigation required. Chaos mode might be active."
 
-      # 2. High 4xx Error Rate (Client Faults) - Warning
-      # Useful for detecting bad deployments or abuse
+      # 2. High 4xx Error Rate (Matching "Not Found" or "Bad Request")
       - alert: API_Client_Errors_High
         expr: |
           (sum(rate(weather_service_http_requests_total{code=~"4.."}[1m])) 
           / 
           sum(rate(weather_service_http_requests_total[1m]))) > 0.1
         for: 1m
-        labels:
-          severity: warning
-        annotations:
-          summary: "High Client Error Rate (4xx > 10%)"
 
       # 3. High Latency (Slow Responses)
       - alert: API_Latency_High

@@ -33,6 +33,33 @@
         "type": "graph",
         "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
         "targets": [{ "expr": "go_goroutines", "legendFormat": "Goroutines" }]
+      },
+      {
+        "title": "HTTP Status Breakdown",
+        "type": "table",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+        "datasource": "Prometheus",
+        "targets": [
+          {
+            "expr": "sum by (code, status_text) (rate(weather_service_http_requests_total[5m]))",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": { "Time": true },
+              "renameByName": {
+                "Value": "Requests/sec",
+                "code": "HTTP Code",
+                "status_text": "Status Description"
+              }
+            }
+          }
+        ]
       }
     ]
   }

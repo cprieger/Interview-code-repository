@@ -1,6 +1,6 @@
 global:
-  scrape_interval: 5s     # Scrape often for real-time demo
-  evaluation_interval: 5s # Evaluate rules often
+  scrape_interval: 5s 
+  evaluation_interval: 5s
 
 rule_files:
   - "alert_rules.yml"
@@ -8,7 +8,7 @@ rule_files:
 scrape_configs:
   - job_name: 'weather-service'
     static_configs:
-      - targets: ['weather-service:8080']
+      - targets: ['weather-service:8080'] 
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
