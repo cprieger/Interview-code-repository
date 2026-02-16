@@ -28,12 +28,20 @@ type Client struct {
 
 func NewClient() *Client {
 	return &Client{
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second,
+		},
 	}
 }
 
 func (c *Client) GetWeather(ctx context.Context, location string) (*WeatherData, error) {
-	// 1. Check Cache [cite: 14, 48]
+	// 1. Chaos Injection: Triggered by context from the middleware/handler
+	if ctx.Value("chaos_trigger") == "true" {
+		slog.Warn("Chaos mode active: injecting failure", "trace_id", ctx.Value("trace_id"))
+		return nil, fmt.Errorf("simulated downstream failure")
+	}
+
+	// 2. Cache-Aside Pattern
 	if val, ok := c.cache.Load(location); ok {
 		data := val.(WeatherData)
 		data.Cached = true
@@ -44,11 +52,12 @@ func (c *Client) GetWeather(ctx context.Context, location string) (*WeatherData,
 	obs.CacheMisses.Inc()
 	var data WeatherData
 
-	// 2. Fetch with Retries (Exponential Backoff) [cite: 16, 46]
+	// 3. Resilience: Retry with Exponential Backoff
 	err := c.retry(ctx, 3, 500*time.Millisecond, func() error {
-		// Public API: No Key Required. Hardcoded to Lubbock, TX coordinates for this example.
+		// Public API - Open-Meteo (No Key Required)
+		// Coordinates for Lubbock, TX used as the example fetch
 		url := "https://api.open-meteo.com/v1/forecast?latitude=33.57&longitude=-101.85&current=temperature_2m,relative_humidity_2m,wind_speed_10m"
-		
+
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
 			return err
@@ -61,11 +70,15 @@ func (c *Client) GetWeather(ctx context.Context, location string) (*WeatherData,
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			return fmt.Errorf("upstream api error: %d", resp.StatusCode)
+			return fmt.Errorf("upstream api returned status: %d", resp.StatusCode)
 		}
 
-		body, _ := io.ReadAll(resp.Body)
-		
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		// Internal anonymous struct to map the specific Open-Meteo response
 		var result struct {
 			Current struct {
 				Temp     float64 `json:"temperature_2m"`
@@ -73,14 +86,14 @@ func (c *Client) GetWeather(ctx context.Context, location string) (*WeatherData,
 				Wind     float64 `json:"wind_speed_10m"`
 			} `json:"current"`
 		}
-		
+
 		if err := json.Unmarshal(body, &result); err != nil {
 			return err
 		}
 
 		data = WeatherData{
 			Temperature: result.Current.Temp,
-			Conditions:  "Live Data (Open-Meteo)",
+			Conditions:  "Clear/Sunny (Mocked)",
 			Humidity:    result.Current.Humidity,
 			WindSpeed:   result.Current.Wind,
 			Cached:      false,
@@ -92,17 +105,20 @@ func (c *Client) GetWeather(ctx context.Context, location string) (*WeatherData,
 		return nil, err
 	}
 
-	// 3. Store in cache [cite: 14, 48]
+	// 4. Update Cache for subsequent requests
 	c.cache.Store(location, data)
 	return &data, nil
 }
 
+// retry handles the exponential backoff logic
 func (c *Client) retry(ctx context.Context, attempts int, sleep time.Duration, f func() error) error {
 	for i := 0; i < attempts; i++ {
 		if err := f(); err == nil {
 			return nil
 		}
-		slog.Warn("retrying upstream call", "attempt", i+1)
+
+		slog.Warn("retrying upstream request", "attempt", i+1, "trace_id", ctx.Value("trace_id"))
+
 		select {
 		case <-time.After(sleep):
 			sleep *= 2
@@ -110,5 +126,5 @@ func (c *Client) retry(ctx context.Context, attempts int, sleep time.Duration, f
 			return ctx.Err()
 		}
 	}
-	return fmt.Errorf("failed after %d attempts", attempts)
+	return fmt.Errorf("request failed after %d attempts", attempts)
 }

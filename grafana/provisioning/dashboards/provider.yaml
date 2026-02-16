@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: 'Weather Service Dashboards'
+    orgId: 1
+    folder: 'Operations'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      # This MUST match the volume path in docker-compose (/var/lib/grafana/dashboards)
+      path: /var/lib/grafana/dashboards

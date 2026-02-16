@@ -1,26 +1,61 @@
 groups:
-  - name: weather_service_alerts
+  - name: weather_sre_advanced_alerts
     rules:
-      # Critical: Error Rate SLI Breach
-      - alert: HighErrorRate
+      # 1. 500-Series (Server Errors) - High Priority
+      - alert: HighErrorRate5xx
         expr: |
-          sum(rate(weather_service_http_requests_total{code=~"5.."}[5m])) 
+          sum(rate(weather_service_http_requests_total{code=~"5.."}[1m])) 
           / 
-          sum(rate(weather_service_http_requests_total[5m])) > 0.05
-        for: 2m
+          sum(rate(weather_service_http_requests_total[1m])) > 0.05
+        for: 0m
         labels:
           severity: critical
-          team: sre
         annotations:
-          summary: "Service {{ $labels.instance }} error rate is > 5%"
-          description: "The weather service is failing more than 5% of requests. This affects the Error Budget."
+          summary: "CRITICAL: 5xx Error Rate > 5%"
 
-      # Warning: Latency SLI Breach (P99)
-      - alert: SlowResponses
-        expr: histogram_quantile(0.99, sum by (le) (rate(weather_service_http_request_duration_seconds_bucket[5m]))) > 0.5
-        for: 5m
+      # 2. 400-Series (Client Errors/Bad Requests) - Warning
+      # High 4xx often indicates a broken frontend or a bot attack.
+      - alert: ElevatedClientErrors4xx
+        expr: |
+          sum(rate(weather_service_http_requests_total{code=~"4.."}[1m])) 
+          / 
+          sum(rate(weather_service_http_requests_total[1m])) > 0.10
+        for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "P99 Latency Breach"
-          description: "99th percentile of requests are taking longer than 500ms."
+          summary: "Warning: High 4xx Rate (>10%)"
+          description: "Detected a spike in client-side errors. Possible malformed requests or API misuse."
+
+      # 3. ANOMALY DETECTION: Latency Outlier (Z-Score)
+      # This triggers if current P99 latency is > 3 standard deviations away from the 
+      # average latency over the last hour. This catches "weird" behavior, even if 
+      # it's still below a hard threshold.
+      - alert: LatencyAnomalyDetected
+        expr: |
+          (
+            histogram_quantile(0.99, sum by (le) (rate(weather_service_http_request_duration_seconds_bucket[1m])))
+            -
+            avg_over_time(histogram_quantile(0.99, sum by (le) (rate(weather_service_http_request_duration_seconds_bucket[5m])))[1h:1m])
+          ) 
+          / 
+          stddev_over_time(histogram_quantile(0.99, sum by (le) (rate(weather_service_http_request_duration_seconds_bucket[5m])))[1h:1m]) > 3
+        for: 1m
+        labels:
+          severity: warning
+          type: anomaly
+        annotations:
+          summary: "Anomaly: Latency Z-Score > 3"
+          description: "Latency is deviating significantly from historical norms (3 standard deviations)."
+
+      # 4. Traffic Anomaly: Sudden Drop (Deadmans Switch)
+      - alert: SuddenTrafficDrop
+        expr: |
+          sum(rate(weather_service_http_requests_total[2m])) < 
+          (avg_over_time(sum(rate(weather_service_http_requests_total[2m]))[1h:2m]) * 0.5)
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Anomaly: Traffic dropped by >50%"
+          description: "Current request rate is less than half of the 1-hour rolling average."

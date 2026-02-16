@@ -2,91 +2,90 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"weather-service/internal/obs"
+	"weather-service/internal/weather"
 )
 
 func main() {
-	// 1. Setup Structured Logging with Service Context
-	// slog.JSONHandler includes time by default, but we can customize it here
-	opts := &slog.HandlerOptions{
-		AddSource: true, // Optional: includes the file/line number in logs
-	}
-
-	// Initialize the handler with stdout
-	handler := slog.NewJSONHandler(os.Stdout, opts)
-
-	// Inject "service" and "env" globally so every log line has them
-	logger := slog.New(handler).With(
-		slog.String("service", "weather-alert-service"),
-		slog.String("env", "production"), // Or pull from os.Getenv("ENV")
-	)
-
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil)).With(slog.String("service", "weather-service"))
 	slog.SetDefault(logger)
 
-	logger.Info("service initialized", "status", "ready")
-
-	// 2. Initialize Router
+	wClient := weather.NewClient()
 	mux := http.NewServeMux()
 
-	// Health Check (Requirement 2.0)
-	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
+	//Moved Dashboard to microservice. Frontend should be seperated anyways.
+
+	// --- 2. OTHER SYSTEM ROUTES ---
+	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"up"}`))
 	})
 
-	// 3. Configure Server
-	srv := &http.Server{
-		Addr:         ":8080",
-		Handler:      mux,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  120 * time.Second,
-	}
+	// --- 3. PARAMETERIZED WEATHER ROUTE ---
+	// Registering this last ensures it doesn't "eat" the other routes.
+	mux.HandleFunc("/weather/{location}", func(w http.ResponseWriter, r *http.Request) {
+		location := r.PathValue("location")
 
-	// 4. Graceful Shutdown (Bonus Requirement)
-	done := make(chan os.Signal, 1)
-	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		logger.Info("starting server", "addr", srv.Addr)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("listen failed", "error", err)
-			os.Exit(1)
+		// Guardrail
+		if location == "dashboard" || location == "metrics" || location == "health" {
+			http.NotFound(w, r)
+			return
 		}
-	}()
 
-	// Simple Dashboard Endpoint
-	mux.HandleFunc("GET /dashboard$", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		fmt.Fprint(w, `
-			<html>
-				<body style="font-family: sans-serif; padding: 20px; background: #f4f4f9;">
-					<h1>Weather SRE Dashboard</h1>
-					<div id="root">
-						<h3>Service Metrics</h3>
-						<iframe src="http://localhost:9090/graph" width="100%" height="400"></iframe>
-						<h3>Active Alerts</h3>
-						<iframe src="http://localhost:9090/alerts" width="100%" height="400"></iframe>
-					</div>
-				</body>
-			</html>
-		`)
+		ctx := r.Context()
+		if r.Header.Get("X-Chaos-Mode") == "true" {
+			ctx = context.WithValue(ctx, "chaos_trigger", "true")
+		}
+
+		data, err := wClient.GetWeather(ctx, location)
+		if err != nil {
+			http.Error(w, "internal service error", 500)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(data)
 	})
 
-	<-done // Wait for CTRL+C or SIGTERM
-	logger.Info("shutting down weather service")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := srv.Shutdown(ctx); err != nil {
-		logger.Error("forced shutdown", "error", err)
+	srv := &http.Server{
+		Addr:    ":8080",
+		Handler: observabilityMiddleware(mux),
 	}
-	logger.Info("server exited")
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		slog.Info("server starting", "port", 8080)
+		srv.ListenAndServe()
+	}()
+
+	<-stop
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
+	srv.Shutdown(ctx)
+}
+
+func observabilityMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		traceID := uuid.New().String()
+		w.Header().Set("X-Correlation-ID", traceID)
+
+		next.ServeHTTP(w, r)
+
+		obs.HttpRequestDuration.WithLabelValues(r.URL.Path).Observe(time.Since(start).Seconds())
+		obs.HttpRequestsTotal.WithLabelValues("200", r.URL.Path).Inc()
+		slog.Info("request", "path", r.URL.Path, "trace_id", traceID)
+	})
 }

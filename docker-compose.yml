@@ -1,35 +1,35 @@
 services:
   weather-service:
     build: .
-    ports:
-      - "8080:8080"
-    environment:
-      - PORT=8080
-    networks:
-      - monitoring
+    ports: ["8080:8080"]
+    networks: [monitoring]
+
+  dashboard-ui:
+    image: nginx:alpine
+    volumes: ["./frontend:/usr/share/nginx/html"]
+    ports: ["8081:80"]
+    networks: [monitoring]
 
   prometheus:
     image: prom/prometheus:latest
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - ./alert_rules.yml:/etc/prometheus/alert_rules.yml
-    ports:
-      - "9090:9090"
-    networks:
-      - monitoring
-        
+    ports: ["9090:9090"]
+    networks: [monitoring]
+
   grafana:
       image: grafana/grafana:latest
-      ports:
-        - "3000:3000"
+      ports: ["3000:3000"]
       volumes:
+        # Mount the configuration that tells Grafana to look for dashboards
         - ./grafana/provisioning:/etc/grafana/provisioning
-        - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+        # Mount the actual JSON files
+        - ./grafana/dashboards:/var/lib/grafana/dashboards
       environment:
         - GF_AUTH_ANONYMOUS_ENABLED=true
         - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-      networks:
-        - monitoring
+      networks: [monitoring]
 
 networks:
   monitoring:
