@@ -1,8 +1,8 @@
 groups:
-  - name: WeatherServiceAlerts
+  - name: weather_service_alerts
     rules:
-      # 1. High Error Rate (Critical)
-      - alert: WeatherApiHighErrorRate
+      # Critical: Error Rate SLI Breach
+      - alert: HighErrorRate
         expr: |
           sum(rate(weather_service_http_requests_total{code=~"5.."}[5m])) 
           / 
@@ -10,29 +10,17 @@ groups:
         for: 2m
         labels:
           severity: critical
+          team: sre
         annotations:
-          summary: "High Error Rate on {{ $labels.instance }}"
-          description: "Service is returning > 5% errors for more than 2 minutes."
+          summary: "Service {{ $labels.instance }} error rate is > 5%"
+          description: "The weather service is failing more than 5% of requests. This affects the Error Budget."
 
-      # 2. Latency Breach (Warning)
-      - alert: WeatherApiHighLatency
+      # Warning: Latency SLI Breach (P99)
+      - alert: SlowResponses
         expr: histogram_quantile(0.99, sum by (le) (rate(weather_service_http_request_duration_seconds_bucket[5m]))) > 0.5
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "P99 Latency High"
-          description: "99th percentile latency is above 500ms for 5 minutes."
-
-      # 3. Cache Performance Degraded (Informational)
-      - alert: LowCacheHitRate
-        expr: |
-          rate(weather_service_cache_hits_total[5m]) 
-          / 
-          (rate(weather_service_cache_hits_total[5m]) + rate(weather_service_cache_misses_total[5m])) < 0.2
-        for: 10m
-        labels:
-          severity: info
-        annotations:
-          summary: "Cache efficiency is low"
-          description: "Hit rate is below 20%, check upstream API usage."
+          summary: "P99 Latency Breach"
+          description: "99th percentile of requests are taking longer than 500ms."

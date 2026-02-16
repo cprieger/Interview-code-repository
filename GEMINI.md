@@ -1,15 +1,14 @@
 # GEMINI.md: AI-Assisted Development Workflow
 
-This project was built using an **AI-First** development methodology, utilizing **Gemini 3 Flash** to accelerate scaffolding and observability design.
+This project utilized **Gemini 3 Flash** to implement a "Principal-grade" observability stack.
 
-## 🤖 AI Usage Disclosure
-As encouraged by the assessment guidelines, AI was used for:
-* **Boilerplate Generation:** Rapidly scaffolding the Go project structure and server configurations.
-* **SRE Best Practices:** Validating Prometheus metric naming and alerting rule syntax.
-* **Documentation:** Generating high-quality onboarding for reviewers.
+## 🚀 Key Iterations & Automation
+* **Toolchain Parity:** Aligned the `Dockerfile` with **Go 1.23** to match the local development environment, resolving build-time version mismatches.
+* **Observability Provisioning:** Automated Grafana dashboard and datasource setup via YAML provisioning, ensuring a "batteries-included" experience upon launch.
+* **Exact Path Routing:** Solved the Go 1.22 routing collision where the location parameter `{location}` was intercepting `/metrics` and `/health`.
+* **Zero-Trust Testing:** Integrated `bootstrap.sh` to handle all cleanup, builds, and orchestration in a single command.
 
-## 🛠 Human-in-the-Loop Refinements
-While AI generated the base logic, the following refinements were manually guided:
-1. **Context Management:** Ensuring `r.Context()` propagates through the client to respect timeouts.
-2. **Custom Status Tracking:** Implementing the `statusWriter` wrapper to capture HTTP status codes for Prometheus.
-3. **Defensive Configurations:** Fine-tuning server timeouts to production-standard values.
+## 🧠 SRE Logic Applied
+* **RED Method Dashboard:** Pre-configured Grafana to track Request Rate, Error Rate, and Duration (P99).
+* **SLO-Based Alerting:** Defined Prometheus rules for high latency and error budget burn.
+* **Structured Context:** JSON logging enriched with correlation IDs for seamless log-to-metric correlation.

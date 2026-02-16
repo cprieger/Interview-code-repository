@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -12,23 +13,23 @@ import (
 
 func main() {
 	// 1. Setup Structured Logging with Service Context
-    // slog.JSONHandler includes time by default, but we can customize it here
-    opts := &slog.HandlerOptions{
-        AddSource: true, // Optional: includes the file/line number in logs
-    }
-    
-    // Initialize the handler with stdout
-    handler := slog.NewJSONHandler(os.Stdout, opts)
-    
-    // Inject "service" and "env" globally so every log line has them
-    logger := slog.New(handler).With(
-        slog.String("service", "weather-alert-service"),
-        slog.String("env", "production"), // Or pull from os.Getenv("ENV")
-    )
-    
-    slog.SetDefault(logger)
+	// slog.JSONHandler includes time by default, but we can customize it here
+	opts := &slog.HandlerOptions{
+		AddSource: true, // Optional: includes the file/line number in logs
+	}
 
-    logger.Info("service initialized", "status", "ready")
+	// Initialize the handler with stdout
+	handler := slog.NewJSONHandler(os.Stdout, opts)
+
+	// Inject "service" and "env" globally so every log line has them
+	logger := slog.New(handler).With(
+		slog.String("service", "weather-alert-service"),
+		slog.String("env", "production"), // Or pull from os.Getenv("ENV")
+	)
+
+	slog.SetDefault(logger)
+
+	logger.Info("service initialized", "status", "ready")
 
 	// 2. Initialize Router
 	mux := http.NewServeMux()
