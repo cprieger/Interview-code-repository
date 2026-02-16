@@ -18,84 +18,53 @@ import (
 	"weather-service/internal/weather"
 )
 
-// observabilityMiddleware handles Correlation IDs and ensures the context
-// is correctly propagated down the chain.
 func observabilityMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-
-		// 1. Generate or retrieve Trace ID
 		traceID := r.Header.Get("X-Correlation-ID")
 		if traceID == "" {
 			traceID = uuid.New().String()
 		}
 		w.Header().Set("X-Correlation-ID", traceID)
 
-		// 2. ENFORCE CONTEXT PROPAGATION: Use r.WithContext
-		// This is critical for SRE traceability and Chaos testing.
+		// Detect Chaos Header at the absolute edge
+		chaos := r.Header.Get("X-Chaos-Mode")
+
 		ctx := context.WithValue(r.Context(), "trace_id", traceID)
-		r = r.WithContext(ctx)
+		ctx = context.WithValue(ctx, weather.ChaosTriggerKey, chaos)
 
-		next.ServeHTTP(w, r)
+		if chaos == "true" {
+			slog.Warn("!!! EDGE INTERCEPT: Chaos Header Detected !!!", "trace_id", traceID)
+		}
 
-		// 3. Record RED Metrics
+		next.ServeHTTP(w, r.WithContext(ctx))
+
 		duration := time.Since(start)
 		obs.HttpRequestDuration.WithLabelValues(r.URL.Path).Observe(duration.Seconds())
 		obs.HttpRequestsTotal.WithLabelValues("N/A", r.URL.Path).Inc()
-
-		slog.Info("request processed",
-			slog.String("trace_id", traceID),
-			slog.String("method", r.Method),
-			slog.String("path", r.URL.Path),
-			slog.Duration("latency", duration),
-		)
 	})
 }
 
 func main() {
-	// Initialize Structured JSON Logger with Debug level to verify Chaos triggers
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug})).With(
-		slog.String("service", "weather-service"),
-	)
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	slog.SetDefault(logger)
 
 	wClient := weather.NewClient()
 	mux := http.NewServeMux()
 
-	// --- SYSTEM ROUTES ---
 	mux.Handle("GET /metrics", promhttp.Handler())
-
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"up"}`))
 	})
 
-	// --- WEATHER API ENDPOINT ---
 	mux.HandleFunc("GET /weather/{location}", func(w http.ResponseWriter, r *http.Request) {
 		location := r.PathValue("location")
-		traceID, _ := r.Context().Value("trace_id").(string)
 
-		// 1. CAPTURE CHAOS HEADER
-		chaosHeader := r.Header.Get("X-Chaos-Mode")
-
-		// 2. INJECT INTO CONTEXT: Use the type-safe Key from the weather package
-		ctx := context.WithValue(r.Context(), weather.ChaosTriggerKey, chaosHeader)
-
-		if chaosHeader == "true" {
-			slog.Warn("!!! CHAOS TRIGGER DETECTED AT HANDLER !!!", slog.String("trace_id", traceID))
-		}
-
-		// 3. CALL ENGINE WITH ENRICHED CONTEXT
-		data, err := wClient.GetWeather(ctx, location)
+		data, err := wClient.GetWeather(r.Context(), location)
 		if err != nil {
-			slog.Error("weather request failed",
-				slog.Any("error", err),
-				slog.String("trace_id", traceID),
-				slog.String("location", location),
-			)
-
-			// Force a 500 status for Prometheus alerting
+			slog.Error("request failed", "error", err, "location", location)
 			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprint(w, err.Error())
@@ -106,33 +75,21 @@ func main() {
 		json.NewEncoder(w).Encode(data)
 	})
 
-	// --- SERVER LIFECYCLE ---
 	srv := &http.Server{
-		Addr:         ":8080",
-		Handler:      observabilityMiddleware(mux),
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		Addr:    ":8080",
+		Handler: observabilityMiddleware(mux),
 	}
 
-	done := make(chan os.Signal, 1)
-	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		slog.Info("Weather API starting", slog.Int("port", 8080))
+		slog.Info("SRE API Live", "port", 8080)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("server fatal error", slog.Any("error", err))
 			os.Exit(1)
 		}
 	}()
 
-	<-done
-	slog.Warn("shutdown signal received")
-
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		slog.Error("graceful shutdown failed", slog.Any("error", err))
-	}
-	slog.Info("server exited safely")
+	<-stop
+	srv.Shutdown(context.Background())
 }

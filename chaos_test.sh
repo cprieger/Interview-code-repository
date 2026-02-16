@@ -1,33 +1,17 @@
 #!/bin/bash
+# Principal SRE Chaos Verification
 
-BASE_URL="http://localhost:8080"
-echo "🔥 [SRE] INITIALIZING VERIFIED CHAOS TEST..."
+URL="http://localhost:8080/weather/lubbock"
 
-# Step 1: Verification
-echo "🔍 Testing Header Propagation..."
-RESP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "X-Chaos-Mode: true" $BASE_URL/weather/lubbock)
+echo "🔍 VERIFYING END-TO-END PROPAGATION..."
 
-if [ "$RESP_CODE" -eq 500 ]; then
-    echo "✅ Header Verified: Server correctly injecting 500 errors."
+# We use -H "X-Chaos-Mode: true" and check the status
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "X-Chaos-Mode: true" "$URL")
+
+if [ "$STATUS" -eq 500 ]; then
+    echo "✅ SUCCESS: Chaos Mode verified (Received 500)"
 else
-    echo "❌ Header Failed: Expected 500, got $RESP_CODE. Check logs."
+    echo "❌ FAILURE: Received $STATUS. Checking logs..."
+    docker-compose logs weather-service | grep "Chaos"
     exit 1
 fi
-
-# Step 2: Anomaly Generation (Mixed Traffic)
-echo "🚀 Generating Anomaly Traffic..."
-for i in {1..40}
-do
-    # 50% Chaos, 50% Normal
-    if (( $i % 2 == 0 )); then
-        curl -s -H "X-Chaos-Mode: true" "$BASE_URL/weather/lubbock" > /dev/null &
-    else
-        curl -s "$BASE_URL/weather/lubbock" > /dev/null &
-    fi
-    sleep 0.2
-done
-
-echo ""
-echo "✅ Test Sequence Complete."
-echo "View Anomaly Z-Scores in Grafana: http://localhost:3000"
-echo "Check Firing Alerts in Prometheus: http://localhost:9090/alerts"
