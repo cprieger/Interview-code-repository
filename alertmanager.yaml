@@ -1,0 +1,11 @@
+route:
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  receiver: 'pagerduty-notifications'
+
+receivers:
+- name: 'pagerduty-notifications'
+  pagerduty_configs:
+  - [cite_start]service_key: 'YOUR_INTEGRATION_KEY_HERE' # Never hardcode real keys [cite: 39, 50]
