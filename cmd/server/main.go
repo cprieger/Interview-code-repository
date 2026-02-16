@@ -6,23 +6,25 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
+
+	"weather-service/internal/weather"
 
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"weather-service/internal/weather"
 )
 
-// --- METRICS ---
+// --- PROMETHEUS METRICS DEFINITION ---
 var (
 	httpRequestsTotal = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "weather_service_http_requests_total",
 			Help: "Total number of HTTP requests",
 		},
-		[]string{"path", "method", "code"},
+		[]string{"path", "method", "code", "status_text"},
 	)
 
 	httpRequestDuration = prometheus.NewHistogramVec(
@@ -36,19 +38,20 @@ var (
 )
 
 func init() {
+	// Register metrics with Prometheus
 	prometheus.MustRegister(httpRequestsTotal)
 	prometheus.MustRegister(httpRequestDuration)
 }
 
 func main() {
-	// 1. Setup Logger
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
-	slog.Info("!!! SERVER STARTING: METRICS & CHAOS ENABLED !!!")
+
+	slog.Info("!!! BUILD: METRICS ENABLED !!!")
 
 	wClient := weather.NewClient()
-	
-	// 2. Business Logic
+
+	// BUSINESS LOGIC
 	apiHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/health" {
 			w.WriteHeader(http.StatusOK)
@@ -72,44 +75,59 @@ func main() {
 		http.NotFound(w, r)
 	})
 
-	// 3. SRE Middleware (The "Glue")
-	sreHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// METRICS & SRE MIDDLEWARE
+	// 1. We wrap the API with SRE logic (logging/chaos)
+	sreHandler := sreMiddleware(apiHandler)
+
+	// 2. We use a dedicated ServeMux to route /metrics separately
+	rootMux := http.NewServeMux()
+
+	// EXPOSE THE METRICS ENDPOINT
+	rootMux.Handle("/metrics", promhttp.Handler())
+
+	// Everything else goes to the app
+	rootMux.Handle("/", sreHandler)
+
+	slog.Info("Server starting on :8080")
+	http.ListenAndServe(":8080", rootMux)
+}
+
+func sreMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		traceID := uuid.New().String()
-		
-		// Chaos Trigger
+
+		// DETECT CHAOS
 		isChaos := "false"
 		if r.Header.Get("X-Chaos-Mode") == "true" || r.URL.Query().Get("chaos") == "true" {
 			isChaos = "true"
 		}
 
-		// Context Injection
 		ctx := context.WithValue(r.Context(), "chaos_trigger", isChaos)
 		ctx = context.WithValue(ctx, "trace_id", traceID)
 
-		// Status Recorder
+		// WRAPPER FOR CAPTURING STATUS CODE
 		rw := &statusRecorder{ResponseWriter: w, statusCode: http.StatusOK}
-		apiHandler.ServeHTTP(rw, r.WithContext(ctx))
-		
-		// Metrics
+
+		next.ServeHTTP(rw, r.WithContext(ctx))
+
 		duration := time.Since(start).Seconds()
-		path := "/weather/:location" // Simplified for cardinality
-		if r.URL.Path == "/health" { path = "/health" }
-		
-		httpRequestsTotal.WithLabelValues(path, r.Method, http.StatusText(rw.statusCode)).Inc()
+
+		// RECORD METRICS
+		path := r.URL.Path
+		// Low-cardinality path grouping (prevents memory explosion on random URLs)
+		if strings.HasPrefix(path, "/weather/") {
+			path = "/weather/:location"
+		}
+
+		httpRequestsTotal.WithLabelValues(path, r.Method, strconv.Itoa(rw.statusCode), http.StatusText(rw.statusCode)).Inc()
 		httpRequestDuration.WithLabelValues(path, r.Method).Observe(duration)
 
-		slog.Info("request completed", "path", r.URL.Path, "status", rw.statusCode)
+		slog.Info("request completed", "path", r.URL.Path, "status", rw.statusCode, "latency", duration, "status_text", http.StatusText(rw.statusCode))
 	})
-
-	// 4. Routing
-	mux := http.NewServeMux()
-	mux.Handle("/metrics", promhttp.Handler()) // Metrics Endpoint
-	mux.Handle("/", sreHandler)                // Application Logic
-
-	http.ListenAndServe(":8080", mux)
 }
 
+// statusRecorder captures the status code for metrics
 type statusRecorder struct {
 	http.ResponseWriter
 	statusCode int
