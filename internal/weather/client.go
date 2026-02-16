@@ -13,7 +13,7 @@ import (
 	"weather-service/internal/obs"
 )
 
-// Private type for context keys to prevent collisions
+// Use a unique type for the key to ensure we aren't colliding with other context values
 type ctxKey string
 
 const ChaosTriggerKey ctxKey = "chaos_trigger"
@@ -50,6 +50,7 @@ func (c *Client) GetWeather(ctx context.Context, location string) (*WeatherData,
 
 	// --- 2. SECONDARY: CACHE CHECK ---
 	if val, ok := c.cache.Load(location); ok {
+		slog.Info("Cache hit", "location", location)
 		data := val.(WeatherData)
 		data.Cached = true
 		obs.CacheHits.Inc()
@@ -62,9 +63,9 @@ func (c *Client) GetWeather(ctx context.Context, location string) (*WeatherData,
 	// --- 3. FETCH LOGIC ---
 	err := c.retry(ctx, 3, 500*time.Millisecond, func() error {
 		url := "https://api.open-meteo.com/v1/forecast?latitude=33.57&longitude=-101.85&current=temperature_2m,relative_humidity_2m,wind_speed_10m"
-
+		
 		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-		if err != nil {
+		ßßif err != nil {
 			return err
 		}
 
@@ -86,7 +87,7 @@ func (c *Client) GetWeather(ctx context.Context, location string) (*WeatherData,
 				Wind     float64 `json:"wind_speed_10m"`
 			} `json:"current"`
 		}
-
+		
 		if err := json.Unmarshal(body, &result); err != nil {
 			return err
 		}
@@ -121,5 +122,5 @@ func (c *Client) retry(ctx context.Context, attempts int, sleep time.Duration, f
 			return ctx.Err()
 		}
 	}
-	return fmt.Errorf("max retries reached")
+	return fmt.Errorf("retries exhausted")
 }
