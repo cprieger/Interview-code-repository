@@ -3,16 +3,16 @@ groups:
     rules:
       # --- RELIABILITY (The Golden Signals) ---
       
-      # 1. High 5xx Error Rate (Matching the text "Internal Server Error")
+      # 1. High 5xx Error Rate (Server faults)
       - alert: API_Server_Errors_High
-        # Note: We still use 'code' because it's easiest to regex match the 5
+        # Uses the HTTP status code label (5xx)
         expr: |
           (sum(rate(weather_service_http_requests_total{code=~"5.."}[1m])) 
           / 
           sum(rate(weather_service_http_requests_total[1m]))) > 0.1
         for: 10s
 
-      # 2. High 4xx Error Rate (Matching "Not Found" or "Bad Request")
+      # 2. High 4xx Error Rate (Client faults)
       - alert: API_Client_Errors_High
         expr: |
           (sum(rate(weather_service_http_requests_total{code=~"4.."}[1m])) 
@@ -69,3 +69,4 @@ groups:
           severity: critical
         annotations:
           summary: "API Traffic has dropped to zero"
+
