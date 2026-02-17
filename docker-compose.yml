@@ -1,3 +1,5 @@
+name: sre-go-interview
+
 services:
   weather-service:
     build: .

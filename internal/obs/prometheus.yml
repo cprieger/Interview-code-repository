@@ -2,8 +2,10 @@ global:
   scrape_interval: 5s 
   evaluation_interval: 5s
 
+# Explicit absolute path so Prometheus can find the rules file
+# (matches the Docker volume mount in docker-compose.yml).
 rule_files:
-  - "alert_rules.yml"
+  - "/etc/prometheus/alert_rules.yml"
 
 scrape_configs:
   - job_name: 'weather-service'
