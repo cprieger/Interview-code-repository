@@ -1,4 +1,4 @@
-# GEMINI.md: AI-Assisted SRE Workflow
+# AI-Assisted SRE Workflow
 
 ## 🚀 Project Status: Maximum Observability & Reliability
 This project has evolved from a basic API into a fully instrumented, resilience-tested microservice. Below is a summary of the architectural challenges resolved and the SRE principles applied.
@@ -6,7 +6,7 @@ This project has evolved from a basic API into a fully instrumented, resilience-
 ### 🛠️ Technical Reconciliations
 1.  **Docker Layer Caching & Stale Builds:**
     * **Problem:** Code changes to `main.go` were not reflecting in the running container due to aggressive Docker caching of the `COPY . .` layer.
-    * **Resolution:** Implemented a `bootstrap.sh` protocol using `--no-cache` and strict volume pruning to guarantee atomic, fresh deployments.
+    * **Resolution:** Implemented a bootstrap script (`scripts/bootstrap/bootstrap.sh`) using `--no-cache` and strict volume pruning to guarantee atomic, fresh deployments.
     * **Verification:** Added a Startup Banner (`!!! BUILD: ELEGANT MIDDLEWARE MODE !!!`) to logs to prove code freshness.
 
 2.  **Routing Version Compatibility:**
@@ -23,14 +23,15 @@ This project has evolved from a basic API into a fully instrumented, resilience-
     * **Golden Signals:** Latency (P99), Traffic (RPS), Errors (5xx Rate).
     * **System Saturation:** Heap Memory, Goroutine Count, CPU Usage.
     * **Client Behavior:** 4xx Error Rates (to detect bad requests vs. server faults).
+    * **HTTP Outcomes:** Success vs. failure, captured via `weather_service_http_requests_total{code=...}` with labels for path, method, status code, and status text.
 * **Deterministic Chaos:** Replaced "random" failures with controlled, synthetic fault injection (`?chaos=true`) to mathematically verify alerting pipelines.
-* **Infrastructure as Code:** All dashboards, datasources, and alert rules are provisioned via config files, not manual UI clicking.
+* **Infrastructure as Code:** All dashboards, datasources, and alert rules are provisioned via config files, not manual UI clicking. Prometheus is configured via `internal/obs/prometheus.yml` and alerting rules via `internal/obs/alert_rules.yml`.
 
 ### 📊 Final Architecture
 * **Edge:** Nginx Control Plane (Port 8081).
-* **Middleware:** SRE Interceptor (Tracing, Logging, Fault Injection).
+* **Middleware:** SRE Interceptor (Tracing, Logging, Fault Injection, HTTP metrics).
 * **Core:** Go Weather Service (Port 8080).
-* **Monitoring:** Prometheus (Port 9090) + Grafana (Port 3000).
+* **Observability:** Prometheus (Port 9090) + Grafana (Port 3000), configured via `internal/obs/prometheus.yml` and `internal/obs/alert_rules.yml`.
 
 ---
 *Generated via AI Collaboration Session - Feb 2026*

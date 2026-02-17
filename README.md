@@ -51,7 +51,7 @@ We include a script that generates traffic patterns (Normal, 404s, and 500s) to 
 
 We track the **Four Golden Signals** plus Runtime Metrics.
 
-### 🚨 Alert Rules (`prometheus/alert_rules.yml`)
+### 🚨 Alert Rules (`internal/obs/alert_rules.yml`)
 * **`API_Server_Errors_High`**: >10% of requests are 5xx errors.
 * **`API_Client_Errors_High`**: >10% of requests are 4xx errors.
 * **`API_Latency_High`**: P99 Latency exceeds 500ms.
@@ -69,7 +69,7 @@ We track the **Four Golden Signals** plus Runtime Metrics.
 ```text
 ├── cmd/server/         # Application Entrypoint (Middleware & Routing)
 ├── internal/weather/   # Business Logic (Client & Caching)
-├── prometheus/         # Alert Rules & Scrape Configs
+├── internal/obs/       # Prometheus config, alert rules, and cache metrics
 ├── grafana/            # JSON Dashboards & Datasource Provisioning
 ├── dashboard/          # HTML/CSS for the Control Plane UI
 └── scripts/            # Shell scripts (each with its own README)

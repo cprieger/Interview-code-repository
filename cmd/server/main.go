@@ -10,38 +10,12 @@ import (
 	"strings"
 	"time"
 
+	"weather-service/internal/obs"
 	"weather-service/internal/weather"
 
 	"github.com/google/uuid"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
-
-// --- PROMETHEUS METRICS DEFINITION ---
-var (
-	httpRequestsTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "weather_service_http_requests_total",
-			Help: "Total number of HTTP requests",
-		},
-		[]string{"path", "method", "code", "status_text"},
-	)
-
-	httpRequestDuration = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "weather_service_http_request_duration_seconds",
-			Help:    "Duration of HTTP requests in seconds",
-			Buckets: prometheus.DefBuckets,
-		},
-		[]string{"path", "method"},
-	)
-)
-
-func init() {
-	// Register metrics with Prometheus
-	prometheus.MustRegister(httpRequestsTotal)
-	prometheus.MustRegister(httpRequestDuration)
-}
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -120,8 +94,8 @@ func sreMiddleware(next http.Handler) http.Handler {
 			path = "/weather/:location"
 		}
 
-		httpRequestsTotal.WithLabelValues(path, r.Method, strconv.Itoa(rw.statusCode), http.StatusText(rw.statusCode)).Inc()
-		httpRequestDuration.WithLabelValues(path, r.Method).Observe(duration)
+		obs.HttpRequestsTotal.WithLabelValues(path, r.Method, strconv.Itoa(rw.statusCode), http.StatusText(rw.statusCode)).Inc()
+		obs.HttpRequestDuration.WithLabelValues(path, r.Method).Observe(duration)
 
 		slog.Info("request completed", "path", r.URL.Path, "status", rw.statusCode, "latency", duration, "status_text", http.StatusText(rw.statusCode))
 	})

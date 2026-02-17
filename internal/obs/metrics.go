@@ -5,25 +5,28 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-// We use promauto to automatically register these metrics
+// We use promauto to automatically register these metrics.
+// This package is the single source of truth for:
+// - HTTP request metrics used by Prometheus alerting rules
+// - Cache-related metrics that complement them.
 var (
-	// Request Counter (Rate & Errors)
+	// HTTP Request Counter (Rate, success vs failure, status codes)
 	HttpRequestsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "weather_service_http_requests_total",
-			Help: "Total number of HTTP requests by status code and path.",
+			Help: "Total number of HTTP requests by path, method, status code, and status text.",
 		},
-		[]string{"code", "path"},
+		[]string{"path", "method", "code", "status_text"},
 	)
 
-	// Latency Histogram (Duration)
+	// HTTP Latency Histogram (Duration)
 	HttpRequestDuration = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "weather_service_http_request_duration_seconds",
 			Help:    "Duration of HTTP requests in seconds.",
 			Buckets: prometheus.DefBuckets, // Standard SRE buckets (ms to seconds)
 		},
-		[]string{"path"},
+		[]string{"path", "method"},
 	)
 
 	// Cache Metrics (Operational Excellence)
