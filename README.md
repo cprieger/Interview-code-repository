@@ -8,10 +8,10 @@ We use a unified bootstrap protocol to clean, build, and verify the entire stack
 
 ```bash
 # 1. Make the script executable
-chmod +x bootstrap.sh
+chmod +x scripts/bootstrap/bootstrap.sh
 
-# 2. Launch the stack
-./bootstrap.sh
+# 2. Launch the stack (run from project root)
+./scripts/bootstrap/bootstrap.sh
 ```
 
 Once the script completes, open the **Control Plane**:
@@ -44,7 +44,7 @@ You can force a **500 Internal Server Error** (simulating an upstream outage) wi
 We include a script that generates traffic patterns (Normal, 404s, and 500s) to prove observability:
 
 ```bash
-./chaos_test.sh
+./scripts/chaos_test/chaos_test.sh
 ```
 
 ## 📊 Observability & Alerts
@@ -72,6 +72,8 @@ We track the **Four Golden Signals** plus Runtime Metrics.
 ├── prometheus/         # Alert Rules & Scrape Configs
 ├── grafana/            # JSON Dashboards & Datasource Provisioning
 ├── dashboard/          # HTML/CSS for the Control Plane UI
-├── bootstrap.sh        # Deployment Automation
-└── chaos_test.sh       # SRE Validation Suite
+└── scripts/            # Shell scripts (each with its own README)
+    ├── bootstrap/      # Deployment automation (clean build + health check)
+    ├── chaos_test/     # SRE validation suite (4xx/5xx traffic)
+    └── unit_test/      # Go reliability test (chaos vs cache priority)
 ```
