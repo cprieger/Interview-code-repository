@@ -1,0 +1,82 @@
+groups:
+  - name: weather_service_sre
+    rules:
+      # --- RELIABILITY (The Golden Signals) ---
+      
+      # 1. High 5xx Error Rate (Server faults)
+      - alert: API_Server_Errors_High
+        # Uses the HTTP status code label (5xx)
+        expr: |
+          (sum(rate(weather_service_http_requests_total{code=~"5.."}[1m])) 
+          / 
+          sum(rate(weather_service_http_requests_total[1m]))) > 0.1
+        for: 10s
+
+      # 2. High 4xx Error Rate (Client faults)
+      - alert: API_Client_Errors_High
+        expr: |
+          (sum(rate(weather_service_http_requests_total{code=~"4.."}[1m])) 
+          / 
+          sum(rate(weather_service_http_requests_total[1m]))) > 0.1
+        for: 1m
+
+      # 3. High Latency (Slow Responses)
+      - alert: API_Latency_High
+        expr: histogram_quantile(0.99, sum(rate(weather_service_http_request_duration_seconds_bucket[1m])) by (le)) > 0.5
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "P99 Latency > 500ms"
+
+      # --- SATURATION (System Resources) ---
+
+      # 4. Memory Usage Warning (Heap > 50MB)
+      # Adjust threshold based on container limits
+      - alert: System_Memory_High
+        expr: go_memstats_heap_inuse_bytes > 50000000
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High Memory Usage Detected"
+
+      # 5. CPU Saturation (Rate of change in CPU seconds)
+      - alert: System_CPU_High
+        expr: rate(process_cpu_seconds_total[1m]) > 0.5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU Utilization"
+
+      # 6. Goroutine Leak Detection
+      # If goroutines spike > 100, we might have a leak
+      - alert: System_Goroutines_High
+        expr: go_goroutines > 100
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Abnormal Goroutine Count"
+
+      # 7. Traffic Anomaly (Zero Traffic)
+      # If the API goes completely silent, something is wrong
+      - alert: API_Traffic_Zero
+        expr: sum(rate(weather_service_http_requests_total[1m])) == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API Traffic has dropped to zero"
+
+      # 8. Queue Backlog (KEDA scaling signal)
+      # When queue length grows, KEDA scales workers. This alert confirms visibility.
+      - alert: Queue_Backlog_High
+        expr: weather_queue_length > 100
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis queue backlog > 100 jobs. KEDA should scale workers."
+

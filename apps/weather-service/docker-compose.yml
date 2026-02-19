@@ -1,0 +1,64 @@
+name: sre-go-interview
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    networks: [monitoring]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  weather-service:
+    image: weather-service:latest
+    build: .
+    ports: ["8080:8080"]
+    environment:
+      - REDIS_ADDR=redis:6379
+      - REDIS_QUEUE_NAME=weather:jobs
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [monitoring]
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    environment:
+      - REDIS_ADDR=redis:6379
+    ports: ["9121:9121"]
+    networks: [monitoring]
+    depends_on:
+      - redis
+
+  dashboard-ui:
+    image: nginx:alpine
+    volumes: ["./dashboard:/usr/share/nginx/html"]
+    ports: ["8081:80"]
+    networks: [monitoring]
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./internal/obs/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./internal/obs/alert_rules.yml:/etc/prometheus/alert_rules.yml
+    ports: ["9090:9090"]
+    networks: [monitoring]
+
+  grafana:
+      image: grafana/grafana:latest
+      ports: ["3000:3000"]
+      volumes:
+        # Mount the configuration that tells Grafana to look for dashboards
+        - ./grafana/provisioning:/etc/grafana/provisioning
+        # Mount the actual JSON files
+        - ./grafana/dashboards:/var/lib/grafana/dashboards
+      environment:
+        - GF_AUTH_ANONYMOUS_ENABLED=true
+        - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      networks: [monitoring]
+
+networks:
+  monitoring:
+    driver: bridge

@@ -1,3 +1,14 @@
+## 2026-02-19 (rieger-mastering-hpa branch)
+
+- **Redis queue + KEDA**: Weather service now consumes jobs from Redis (`weather:jobs`). KEDA scales workers based on queue backlog. Chaos test loads 800 jobs to simulate demand.
+- **Restructure**: Moved Go app to `apps/weather-service/`. Root README is now SRE lab overview.
+- **Observability**: Added `redis-exporter`, Grafana "Redis Queue & KEDA Scaling" dashboard, `weather_queue_length` and `weather_jobs_processed_total` metrics, `Queue_Backlog_High` alert.
+- **Dashboard UI**: Links to Grafana, Prometheus, Redis Exporter, Queue Stats, chaos load.
+- **K8s**: Manifests in `platform/local/k8s/weather-service/` (Redis, weather-service, KEDA ScaledObject, HPA, VPA).
+- **Scripts**: `scripts/local/kind_up.sh`, `compose_up.sh`, `compose_down.sh`, `kind_down.sh`.
+- **CI**: `.github/workflows/ci.yml` — test, lint, Docker build, govulncheck.
+- **Docs**: `docs/overview.md`, `docs/keda.md`, `docs/scaling-hpa-vpa.md`.
+
 ## 2026-02-17
 
 - Aligned HTTP metrics with Prometheus:
