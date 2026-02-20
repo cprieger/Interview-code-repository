@@ -79,8 +79,7 @@ func TestGetWeather_ChaosPriority(t *testing.T) {
 	}
 
 	// 3. Test Case: Chaos Request (Should bypass Cache and return 500)
-	// Use the correct context key: "chaos_trigger"
-	chaosCtx := context.WithValue(ctx, "chaos_trigger", "true")
+	chaosCtx := WithChaosTrigger(ctx, "true")
 
 	_, err = client.GetWeather(chaosCtx, location)
 	if err == nil {
@@ -99,7 +98,7 @@ func TestGetWeather_ChaosWithCacheMiss(t *testing.T) {
 	ctx := context.Background()
 
 	// Chaos should trigger even if cache is empty
-	chaosCtx := context.WithValue(ctx, "chaos_trigger", "true")
+	chaosCtx := WithChaosTrigger(ctx, "true")
 
 	_, err := client.GetWeather(chaosCtx, location)
 	if err == nil {
@@ -118,7 +117,7 @@ func TestGetWeather_ChaosFalse(t *testing.T) {
 	ctx := context.Background()
 
 	// Setting chaos_trigger to "false" should not trigger chaos
-	ctx = context.WithValue(ctx, "chaos_trigger", "false")
+	ctx = WithChaosTrigger(ctx, "false")
 
 	data, err := client.GetWeather(ctx, location)
 	if err != nil {

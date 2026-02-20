@@ -42,6 +42,13 @@ Control Plane: **http://localhost:8081**
 - **Queue chaos**: `curl -X POST 'http://localhost:8080/queue/load?count=500&chaos=true'`
 - **Full suite**: `./scripts/chaos_test/chaos_test.sh`
 
+## Quality & Testing
+
+- **All package tests**: `go test -v ./...`
+- **Scripted suite + coverage**: `bash ./scripts/unit_test/unit_test.sh`
+- **Chaos validation**: `./scripts/chaos_test/chaos_test.sh`
+- **Formatting**: `gofmt -w ./...` (or run against changed files)
+
 ## Project Structure
 
 ```

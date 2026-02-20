@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"weather-service/internal/weather"
 )
 
 func TestSREMiddleware_ChaosDetection_QueryParam(t *testing.T) {
@@ -12,7 +14,9 @@ func TestSREMiddleware_ChaosDetection_QueryParam(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedCtx = r.Context()
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		if _, err := w.Write([]byte("OK")); err != nil {
+			t.Errorf("write failed: %v", err)
+		}
 	})
 
 	middleware := sreMiddleware(handler)
@@ -25,12 +29,12 @@ func TestSREMiddleware_ChaosDetection_QueryParam(t *testing.T) {
 	if capturedCtx == nil {
 		t.Fatal("Context was not captured")
 	}
-	if val, ok := capturedCtx.Value("chaos_trigger").(string); !ok || val != "true" {
+	if val := weather.ChaosTrigger(capturedCtx); val != "true" {
 		t.Errorf("Expected chaos_trigger='true' in context, got '%v'", val)
 	}
 
 	// Verify trace_id was set
-	if val, ok := capturedCtx.Value("trace_id").(string); !ok || val == "" {
+	if val, ok := capturedCtx.Value(traceIDContextKey).(string); !ok || val == "" {
 		t.Error("Expected trace_id to be set in context")
 	}
 }
@@ -40,7 +44,9 @@ func TestSREMiddleware_ChaosDetection_Header(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedCtx = r.Context()
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		if _, err := w.Write([]byte("OK")); err != nil {
+			t.Errorf("write failed: %v", err)
+		}
 	})
 
 	middleware := sreMiddleware(handler)
@@ -53,7 +59,7 @@ func TestSREMiddleware_ChaosDetection_Header(t *testing.T) {
 	if capturedCtx == nil {
 		t.Fatal("Context was not captured")
 	}
-	if val, ok := capturedCtx.Value("chaos_trigger").(string); !ok || val != "true" {
+	if val := weather.ChaosTrigger(capturedCtx); val != "true" {
 		t.Errorf("Expected chaos_trigger='true' in context, got '%v'", val)
 	}
 }
@@ -63,7 +69,9 @@ func TestSREMiddleware_NoChaos(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		capturedCtx = r.Context()
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		if _, err := w.Write([]byte("OK")); err != nil {
+			t.Errorf("write failed: %v", err)
+		}
 	})
 
 	middleware := sreMiddleware(handler)
@@ -75,7 +83,7 @@ func TestSREMiddleware_NoChaos(t *testing.T) {
 	if capturedCtx == nil {
 		t.Fatal("Context was not captured")
 	}
-	if val, ok := capturedCtx.Value("chaos_trigger").(string); !ok || val != "false" {
+	if val := weather.ChaosTrigger(capturedCtx); val != "false" {
 		t.Errorf("Expected chaos_trigger='false' in context, got '%v'", val)
 	}
 }
@@ -83,7 +91,9 @@ func TestSREMiddleware_NoChaos(t *testing.T) {
 func TestSREMiddleware_MetricsRecording(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		if _, err := w.Write([]byte("OK")); err != nil {
+			t.Errorf("write failed: %v", err)
+		}
 	})
 
 	middleware := sreMiddleware(handler)
@@ -103,7 +113,9 @@ func TestSREMiddleware_MetricsRecording(t *testing.T) {
 func TestSREMiddleware_PathNormalization(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		if _, err := w.Write([]byte("OK")); err != nil {
+			t.Errorf("write failed: %v", err)
+		}
 	})
 
 	middleware := sreMiddleware(handler)
@@ -134,7 +146,9 @@ func TestSREMiddleware_PathNormalization(t *testing.T) {
 func TestSREMiddleware_StatusCodeCapture(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not Found"))
+		if _, err := w.Write([]byte("Not Found")); err != nil {
+			t.Errorf("write failed: %v", err)
+		}
 	})
 
 	middleware := sreMiddleware(handler)

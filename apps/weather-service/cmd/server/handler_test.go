@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +14,9 @@ func TestHealthHandler(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/health" {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("{\"status\":\"up\"}"))
+			if _, err := w.Write([]byte("{\"status\":\"up\"}")); err != nil {
+				t.Errorf("write failed: %v", err)
+			}
 			return
 		}
 		http.NotFound(w, r)
@@ -46,7 +47,9 @@ func TestWeatherHandler_Success(t *testing.T) {
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(data)
+			if err := json.NewEncoder(w).Encode(data); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 			return
 		}
 		http.NotFound(w, r)
@@ -88,7 +91,9 @@ func TestWeatherHandler_Chaos(t *testing.T) {
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(data)
+			if err := json.NewEncoder(w).Encode(data); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 			return
 		}
 		http.NotFound(w, r)
@@ -98,7 +103,7 @@ func TestWeatherHandler_Chaos(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Inject chaos context (simulating what middleware does)
-	ctx := context.WithValue(req.Context(), "chaos_trigger", "true")
+	ctx := weather.WithChaosTrigger(req.Context(), "true")
 	req = req.WithContext(ctx)
 
 	handler.ServeHTTP(rr, req)
@@ -117,7 +122,9 @@ func TestWeatherHandler_NotFound(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/health" {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("{\"status\":\"up\"}"))
+			if _, err := w.Write([]byte("{\"status\":\"up\"}")); err != nil {
+				t.Errorf("write failed: %v", err)
+			}
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/weather/") {
@@ -128,7 +135,9 @@ func TestWeatherHandler_NotFound(t *testing.T) {
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(data)
+			if err := json.NewEncoder(w).Encode(data); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+			}
 			return
 		}
 		http.NotFound(w, r)

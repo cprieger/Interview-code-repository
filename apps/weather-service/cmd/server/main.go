@@ -18,6 +18,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+type contextKey string
+
+const traceIDContextKey contextKey = "trace_id"
+
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
@@ -26,7 +30,11 @@ func main() {
 
 	wClient := weather.NewClient()
 	qClient := queue.NewClient()
-	defer qClient.Close()
+	defer func() {
+		if err := qClient.Close(); err != nil {
+			slog.Error("redis client close failed", "error", err)
+		}
+	}()
 
 	// Start Redis queue worker (consumes jobs, drives KEDA scaling visibility)
 	go runQueueWorker(context.Background(), qClient, wClient)
@@ -38,7 +46,9 @@ func main() {
 	apiHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/health" {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("{\"status\":\"up\"}"))
+			if _, err := w.Write([]byte("{\"status\":\"up\"}")); err != nil {
+				slog.Error("health response write failed", "error", err)
+			}
 			return
 		}
 
@@ -63,7 +73,10 @@ func main() {
 				return
 			}
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(data)
+			if err := json.NewEncoder(w).Encode(data); err != nil {
+				slog.Error("weather response encode failed", "error", err)
+				http.Error(w, "failed to encode response", http.StatusInternalServerError)
+			}
 			return
 		}
 
@@ -78,7 +91,9 @@ func main() {
 	rootMux.Handle("/", sreHandler)
 
 	slog.Info("Server starting on :8080")
-	http.ListenAndServe(":8080", rootMux)
+	if err := http.ListenAndServe(":8080", rootMux); err != nil {
+		slog.Error("server failed", "error", err)
+	}
 }
 
 func runQueueWorker(ctx context.Context, q *queue.Client, w *weather.Client) {
@@ -98,9 +113,9 @@ func runQueueWorker(ctx context.Context, q *queue.Client, w *weather.Client) {
 			}
 
 			// Build context with chaos flag for weather client
-			jCtx := context.WithValue(ctx, "chaos_trigger", "false")
+			jCtx := weather.WithChaosTrigger(ctx, "false")
 			if job.Chaos {
-				jCtx = context.WithValue(ctx, "chaos_trigger", "true")
+				jCtx = weather.WithChaosTrigger(ctx, "true")
 			}
 
 			_, err = w.GetWeather(jCtx, job.Location)
@@ -155,11 +170,13 @@ func handleQueueLoad(w http.ResponseWriter, r *http.Request, q *queue.Client) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"loaded": n,
 		"chaos":  chaos,
 		"queue":  "weather:jobs",
-	})
+	}); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 func handleQueueStats(w http.ResponseWriter, r *http.Request, q *queue.Client) {
@@ -169,10 +186,12 @@ func handleQueueStats(w http.ResponseWriter, r *http.Request, q *queue.Client) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	if err := json.NewEncoder(w).Encode(map[string]interface{}{
 		"length": n,
 		"queue":  "weather:jobs",
-	})
+	}); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
 }
 
 func sreMiddleware(next http.Handler) http.Handler {
@@ -186,8 +205,8 @@ func sreMiddleware(next http.Handler) http.Handler {
 			isChaos = "true"
 		}
 
-		ctx := context.WithValue(r.Context(), "chaos_trigger", isChaos)
-		ctx = context.WithValue(ctx, "trace_id", traceID)
+		ctx := weather.WithChaosTrigger(r.Context(), isChaos)
+		ctx = context.WithValue(ctx, traceIDContextKey, traceID)
 
 		// WRAPPER FOR CAPTURING STATUS CODE
 		rw := &statusRecorder{ResponseWriter: w, statusCode: http.StatusOK}
