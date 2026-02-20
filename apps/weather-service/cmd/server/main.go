@@ -152,7 +152,10 @@ func handleQueueLoad(w http.ResponseWriter, r *http.Request, q *queue.Client) {
 	if countStr == "" {
 		countStr = "100"
 	}
-	count, _ := strconv.Atoi(countStr)
+	count, err := strconv.Atoi(countStr)
+	if err != nil {
+		count = 100
+	}
 	if count <= 0 || count > 10000 {
 		count = 100
 	}
@@ -223,8 +226,8 @@ func sreMiddleware(next http.Handler) http.Handler {
 			path = "/queue/:action"
 		}
 
-		obs.HttpRequestsTotal.WithLabelValues(path, r.Method, strconv.Itoa(rw.statusCode), http.StatusText(rw.statusCode)).Inc()
-		obs.HttpRequestDuration.WithLabelValues(path, r.Method).Observe(duration)
+		obs.HTTPRequestsTotal.WithLabelValues(path, r.Method, strconv.Itoa(rw.statusCode), http.StatusText(rw.statusCode)).Inc()
+		obs.HTTPRequestDuration.WithLabelValues(path, r.Method).Observe(duration)
 
 		slog.Info("request completed", "path", r.URL.Path, "status", rw.statusCode, "latency", duration, "status_text", http.StatusText(rw.statusCode))
 	})

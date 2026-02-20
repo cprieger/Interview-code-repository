@@ -11,7 +11,7 @@ import (
 // - Cache-related metrics that complement them.
 var (
 	// HTTP Request Counter (Rate, success vs failure, status codes)
-	HttpRequestsTotal = promauto.NewCounterVec(
+	HTTPRequestsTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "weather_service_http_requests_total",
 			Help: "Total number of HTTP requests by path, method, status code, and status text.",
@@ -20,7 +20,7 @@ var (
 	)
 
 	// HTTP Latency Histogram (Duration)
-	HttpRequestDuration = promauto.NewHistogramVec(
+	HTTPRequestDuration = promauto.NewHistogramVec(
 		prometheus.HistogramOpts{
 			Name:    "weather_service_http_request_duration_seconds",
 			Help:    "Duration of HTTP requests in seconds.",

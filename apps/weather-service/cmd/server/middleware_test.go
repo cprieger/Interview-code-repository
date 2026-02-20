@@ -103,7 +103,7 @@ func TestSREMiddleware_MetricsRecording(t *testing.T) {
 	middleware.ServeHTTP(rr, req)
 
 	// Verify request completed successfully
-	// Metrics are recorded via obs.HttpRequestsTotal which uses promauto
+	// Metrics are recorded via obs.HTTPRequestsTotal which uses promauto
 	// (auto-registered), so we verify the request flow works correctly
 	if rr.Code != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", rr.Code)

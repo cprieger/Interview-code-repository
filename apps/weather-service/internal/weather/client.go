@@ -42,7 +42,10 @@ func (c *Client) GetWeather(ctx context.Context, location string) (*WeatherData,
 
 	// Normal Cache Logic
 	if val, ok := c.cache.Load(location); ok {
-		data := val.(WeatherData)
+		data, typeOK := val.(WeatherData)
+		if !typeOK {
+			return nil, fmt.Errorf("invalid cached weather data type")
+		}
 		return &data, nil
 	}
 

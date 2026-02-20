@@ -17,7 +17,7 @@ type Config struct {
 func Load() *Config {
 	return &Config{
 		Port:           getEnv("PORT", "8080"),
-		WeatherAPIKey:  getEnv("WEATHER_API_KEY", "mock-key"), // 
+		WeatherAPIKey:  getEnv("WEATHER_API_KEY", "mock-key"), //
 		LogLevel:       getEnv("LOG_LEVEL", "info"),
 		CacheTTL:       5 * time.Minute,
 		RequestTimeout: 10 * time.Second,
