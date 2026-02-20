@@ -1,0 +1,11 @@
+linters:
+  enable:
+    - gofmt
+    - govet
+    - errcheck
+    - staticcheck
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+  staticcheck:
+    checks: ["all"]
