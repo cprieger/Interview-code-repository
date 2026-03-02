@@ -1,5 +1,11 @@
 ## 2026-03-02
 
+- Fixed `apps/weather-service/scripts/bootstrap/bootstrap.sh`:
+  - Replaced deprecated `docker-compose` (hyphen CLI) with `docker compose` on all 4 invocations.
+  - Corrected Grafana credentials hint — anonymous admin is enabled, no login required.
+
+## 2026-03-02 (initial)
+
 - Added `.gitignore` to exclude build artifacts and sensitive files:
   - Covers `bin/`, root `weather-api` binary, `coverage.out`, `coverage.html`, `vendor/`, `.env`, editor configs, and OS files.
   - Removed `bin/weather-api` and root `weather-api` binaries that were previously committed to the repo.
