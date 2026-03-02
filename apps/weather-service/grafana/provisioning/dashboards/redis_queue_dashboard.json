@@ -1,0 +1,78 @@
+{
+  "title": "Redis Queue & KEDA Scaling",
+  "panels": [
+    {
+      "title": "Queue Length (KEDA Trigger Metric)",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "weather_queue_length",
+          "legendFormat": "Jobs in Queue"
+        }
+      ],
+      "description": "Redis list length. KEDA scales workers when this exceeds threshold."
+    },
+    {
+      "title": "Jobs Processed (Success vs Error)",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(rate(weather_jobs_processed_total{outcome=\"success\"}[1m]))",
+          "legendFormat": "Success/sec"
+        },
+        {
+          "expr": "sum(rate(weather_jobs_processed_total{outcome=\"error\"}[1m]))",
+          "legendFormat": "Error/sec"
+        }
+      ]
+    },
+    {
+      "title": "Redis Memory",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 8},
+      "targets": [
+        {
+          "expr": "redis_memory_used_bytes",
+          "legendFormat": "Used"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "title": "Redis Commands/sec",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 8},
+      "targets": [
+        {
+          "expr": "rate(redis_commands_processed_total[1m])",
+          "legendFormat": "Commands"
+        }
+      ]
+    },
+    {
+      "title": "Queue Backlog Gauge",
+      "type": "gauge",
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 8},
+      "targets": [
+        {
+          "expr": "weather_queue_length",
+          "legendFormat": "Pending Jobs"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": null, "color": "green"},
+              {"value": 50, "color": "yellow"},
+              {"value": 200, "color": "red"}
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

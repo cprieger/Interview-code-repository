@@ -1,0 +1,22 @@
+# KEDA ScaledObject: Scale weather-service based on Redis queue (weather:jobs) length.
+# When chaos_test loads the queue, KEDA sees backlog and scales workers aggressively
+# before the default poll interval would catch up.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: weather-service-keda
+  namespace: default
+spec:
+  scaleTargetRef:
+    name: weather-service
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  triggers:
+    - type: redis
+      metadata:
+        address: redis.default.svc.cluster.local:6379
+        listName: weather:jobs
+        listLength: "5"
+        # listLength: target backlog per replica. Scale when queue_length > listLength * replicas
+        # e.g. 5 means: add a replica when each replica would have > 5 jobs
+      # authenticationRef not needed for passwordless Redis

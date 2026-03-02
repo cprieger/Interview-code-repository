@@ -1,0 +1,23 @@
+# VPA: Recommends/updates resource requests. Start in "Off" mode for learning.
+# Modes: Off | Initial | Recreate | Auto
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: weather-service-vpa
+  namespace: default
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: weather-service
+  updatePolicy:
+    updateMode: "Off"  # Change to "Recreate" or "Auto" to apply recommendations
+  resourcePolicy:
+    containerPolicies:
+      - containerName: "*"
+        minAllowed:
+          cpu: 10m
+          memory: 32Mi
+        maxAllowed:
+          cpu: "2"
+          memory: 512Mi

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SRE Control Plane | Weather Service</title>
+    <style>
+        body { font-family: -apple-system, system-ui, sans-serif; background: #1a1a1a; color: #fff; padding: 40px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .card { background: #2d2d2d; padding: 20px; border-radius: 8px; border: 1px solid #444; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-5px); border-color: #0070f3; }
+        h1 { border-bottom: 2px solid #333; padding-bottom: 10px; }
+        a { text-decoration: none; color: inherit; display: block; height: 100%; }
+        .status { font-weight: bold; color: #4caf50; font-size: 0.9em; text-transform: uppercase; margin-bottom: 10px; display: block; }
+        .desc { color: #aaa; font-size: 0.9em; margin-top: 10px; display: block; }
+        .section { margin-top: 32px; font-size: 0.85em; color: #888; }
+        .section h2 { color: #aaa; font-size: 1em; margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+    <h1>🚀 SRE Observability Hub</h1>
+    <p style="color:#888; margin-bottom:24px">Navigate to any component of the Weather Service SRE lab.</p>
+
+    <div class="grid">
+        <div class="card">
+            <a href="http://localhost:3000" target="_blank">
+                <span class="status">● Monitoring</span>
+                <h3>Grafana Dashboards</h3>
+                <span class="desc">Golden Signals, Redis Queue, KEDA scaling visibility. Explore all dashboards.</span>
+            </a>
+        </div>
+        <div class="card">
+            <a href="http://localhost:9090" target="_blank">
+                <span class="status">● Metrics</span>
+                <h3>Prometheus</h3>
+                <span class="desc">Query engine. Run PromQL, inspect targets.</span>
+            </a>
+        </div>
+        <div class="card">
+            <a href="http://localhost:9090/alerts" target="_blank">
+                <span class="status">● Alerting</span>
+                <h3>Prometheus Alerts</h3>
+                <span class="desc">Active firing alerts and rule definitions.</span>
+            </a>
+        </div>
+        <div class="card">
+            <a href="http://localhost:8080/weather/lubbock" target="_blank">
+                <span class="status">● API</span>
+                <h3>Live Weather API</h3>
+                <span class="desc">Direct HTTP endpoint (normal traffic).</span>
+            </a>
+        </div>
+        <div class="card">
+            <a href="http://localhost:8080/queue/stats" target="_blank">
+                <span class="status">● Queue</span>
+                <h3>Redis Queue Stats</h3>
+                <span class="desc">Current backlog length. KEDA uses this to scale.</span>
+            </a>
+        </div>
+        <div class="card">
+            <a href="http://localhost:9121/metrics" target="_blank">
+                <span class="status">● Redis</span>
+                <h3>Redis Exporter</h3>
+                <span class="desc">Redis metrics (memory, commands). Prometheus scrapes this.</span>
+            </a>
+        </div>
+        <div class="card" style="border-color: #ff9800;">
+            <a href="http://localhost:8080/queue/stats" target="_blank">
+                <span class="status" style="color: #ff9800;">● Chaos</span>
+                <h3>Queue Load (Chaos)</h3>
+                <span class="desc">View stats. To load: <code>curl -X POST '.../queue/load?count=500&chaos=true'</code> or run chaos_test.sh</span>
+            </a>
+        </div>
+        <div class="card" style="border-color: #f44336;">
+            <a href="http://localhost:8080/weather/lubbock?chaos=true" target="_blank">
+                <span class="status" style="color: #f44336;">● Danger</span>
+                <h3>Trigger HTTP Chaos</h3>
+                <span class="desc">Inject 500 errors via HTTP for alert testing.</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Quick Links</h2>
+        <ul style="list-style:none; padding:0;">
+            <li>• <a href="http://localhost:3000" target="_blank" style="display:inline;">Grafana</a> — Dashboards</li>
+            <li>• <a href="http://localhost:9090/graph" target="_blank" style="display:inline;">Prometheus Graph</a> — PromQL</li>
+            <li>• <a href="http://localhost:8080/metrics" target="_blank" style="display:inline;">Weather Service Metrics</a> — /metrics</li>
+            <li>• Redis CLI: <code>docker exec -it &lt;redis_container&gt; redis-cli LLEN weather:jobs</code></li>
+        </ul>
+    </div>
+</body>
+</html>
