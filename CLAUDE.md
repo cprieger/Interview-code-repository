@@ -177,4 +177,19 @@ Each script directory has its own `README.md`.
 
 ## Changelog
 
-See `CHANGELOG.md`. Latest: **2026-02-17** — centralized metrics into `internal/obs/`, expanded test suite, reorganized scripts.
+See `CHANGELOG.md` for full history.
+
+**Workflow: always update `CHANGELOG.md` when making changes.**
+
+Add a new dated section at the top (`## YYYY-MM-DD`) before opening a PR. Each entry should describe:
+- What changed and which files were affected
+- Why (the problem it solves or improvement made)
+
+Group related changes under the same date. Keep entries concise — one line per logical change is ideal.
+
+```markdown
+## YYYY-MM-DD
+
+- Brief description of change:
+  - Detail about affected file or behavior.
+```

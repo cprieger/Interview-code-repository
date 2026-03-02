@@ -1,3 +1,11 @@
+## 2026-03-02
+
+- Added `.gitignore` to exclude build artifacts and sensitive files:
+  - Covers `bin/`, root `weather-api` binary, `coverage.out`, `coverage.html`, `vendor/`, `.env`, editor configs, and OS files.
+  - Removed `bin/weather-api` and root `weather-api` binaries that were previously committed to the repo.
+- Added `CLAUDE.md` for Claude Code session context:
+  - Documents architecture, key commands, endpoints, chaos engineering chain, Prometheus metrics/alerts, and important code patterns.
+  - Reduces per-session AI exploration token cost by ~20k–35k tokens.
 ## 2026-02-20
 
 - **Lint hardening (weather-service)**:

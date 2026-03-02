@@ -1,37 +1,25 @@
-# macOS
-.DS_Store
-
-# Editor/IDE
-.idea/
-*.swp
-*.swo
-*~
-
-# Go build/test artifacts
-*.test
-*.out
-coverage.out
-coverage.html
-profile.out
-
 # Binaries
 bin/
 weather-api
-apps/weather-service/bin/
 
-# Logs
-*.log
+# Go test & coverage artifacts
+*.test
+coverage.out
+coverage.html
 
-# Local env files
+# Go workspace
+vendor/
+
+# Environment / secrets
 .env
-.env.*
-!.env.example
-!.env.sample
+*.env
 
-# Temp/runtime files
-tmp/
-.tmp/
-*.tmp
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
 
-# Dependency/cache directories
-node_modules/
+# OS
+.DS_Store
+Thumbs.db
