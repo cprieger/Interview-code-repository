@@ -21,7 +21,7 @@ echo -e "${BLUE}=================================================${NC}"
 # 1. DESTRUCTIVE CLEANUP
 # We remove volumes to reset Prometheus/Grafana state for a clean test run.
 echo -e "\n${YELLOW}🧹 [PHASE 1] SANITIZING ENVIRONMENT...${NC}"
-docker-compose down --volumes --remove-orphans
+docker compose down --volumes --remove-orphans
 # Force remove the image to guarantee a rebuild from source
 docker rmi weather-service:latest 2>/dev/null || true
 echo -e "${GREEN}   ✔ Environment Cleaned${NC}"
@@ -29,12 +29,12 @@ echo -e "${GREEN}   ✔ Environment Cleaned${NC}"
 # 2. COMPILATION & BUILD
 # We use --no-cache to guarantee the latest Go code is compiled.
 echo -e "\n${YELLOW}🏗️  [PHASE 2] BUILDING IMAGES (NO-CACHE)...${NC}"
-docker-compose build --no-cache weather-service
+docker compose build --no-cache weather-service
 echo -e "${GREEN}   ✔ Build Complete${NC}"
 
 # 3. DEPLOYMENT
 echo -e "\n${YELLOW}🚀 [PHASE 3] STARTING STACK...${NC}"
-docker-compose up -d
+docker compose up -d
 echo -e "${GREEN}   ✔ Containers Launched${NC}"
 
 # 4. HEALTH CHECK LOOP
@@ -52,7 +52,7 @@ while [ $attempt -le $max_attempts ]; do
     attempt=$(( attempt + 1 ))
     if [ $attempt -eq $max_attempts ]; then
         echo -e "${RED}❌ TIMEOUT: Weather API failed to start.${NC}"
-        docker-compose logs weather-service | tail -n 10
+        docker compose logs weather-service | tail -n 10
         exit 1
     fi
     
@@ -71,7 +71,7 @@ echo -e "   (Links to all other tools from one central UI)"
 
 echo -e "\n${CYAN}🛠️  INDIVIDUAL SERVICE LINKS${NC}"
 echo -e "   ► Grafana:        http://localhost:3000"
-echo -e "     (User: admin / Pass: admin)"
+echo -e "     (Anonymous admin — no login required)"
 echo -e "   ► Prometheus:     http://localhost:9090/alerts"
 echo -e "   ► Weather API:    http://localhost:8080/weather/lubbock"
 
