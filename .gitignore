@@ -1,0 +1,25 @@
+# Binaries
+bin/
+weather-api
+
+# Go test & coverage artifacts
+*.test
+coverage.out
+coverage.html
+
+# Go workspace
+vendor/
+
+# Environment / secrets
+.env
+*.env
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
