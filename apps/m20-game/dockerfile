@@ -1,0 +1,33 @@
+# ── Stage 1: Build ────────────────────────────────────────────────────────────
+FROM golang:1.23-alpine AS builder
+
+WORKDIR /app
+
+# Download dependencies first (cache layer)
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source and build
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -v -a -o m20-game cmd/server/main.go
+
+# ── Stage 2: Runtime ──────────────────────────────────────────────────────────
+FROM alpine:latest
+
+# Security: run as non-root
+RUN addgroup -S m20 && adduser -S m20 -G m20
+
+WORKDIR /app
+
+# Copy binary and static web assets
+COPY --from=builder /app/m20-game ./m20-game
+COPY --from=builder /app/web/static ./web/static
+
+# Create data directory for SQLite (owned by app user)
+RUN mkdir -p /app/data && chown m20:m20 /app/data
+
+USER m20
+
+EXPOSE 8082
+
+CMD ["./m20-game"]
