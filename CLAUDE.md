@@ -175,6 +175,19 @@ Each script directory has its own `README.md`.
 
 ---
 
+## Git Workflow
+
+**Never commit directly to `main`.** Always:
+
+1. Create a branch: `git checkout -b cprieger/<descriptive-name>`
+2. Make changes + update `CHANGELOG.md`
+3. Commit on the branch
+4. Push and open a PR: `gh pr create --base main`
+
+**Branch naming convention:** `cprieger/<what-it-does>` (e.g. `cprieger/fix-bootstrap-docker-compose-cli`, `cprieger/add-queue-tests`)
+
+---
+
 ## Changelog
 
 See `CHANGELOG.md` for full history.
