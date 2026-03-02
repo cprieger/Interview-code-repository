@@ -1,4 +1,12 @@
-## 2026-03-02
+## 2026-03-02 (3)
+
+- Added `.claude/agents/` — native Claude Code sub-agent persona team:
+  - 9 agents: Pixel (UI), Gopher (Backend), Bridge (API), Vera (QA), Charity (SRE), Terra (DevOps), Cipher (Security), Droid (Mobile), Atlas (PM)
+  - Each agent has full project context, tech expertise, "Everything Has an Experience" philosophy, red flags, and team dynamics
+  - Invokable via `/agents` or natural language in any Claude Code session
+  - `.agents/README.md` documents the team roster and how to use them
+
+## 2026-03-02 (2)
 
 - Fixed `apps/weather-service/scripts/bootstrap/bootstrap.sh`:
   - Replaced deprecated `docker-compose` (hyphen CLI) with `docker compose` on all 4 invocations.
