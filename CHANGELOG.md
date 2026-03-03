@@ -7,6 +7,20 @@
   - `.agents/README.md` documents the team roster and how to use them
 
 ## 2026-03-02 (2)
+- Added `apps/m20-game/` — full M20 RPG game engine, Phase 2 of the platform roadmap:
+  - `cmd/server/main.go` — HTTP server with all 12 REST endpoints, SRE middleware, structured JSON errors, Prometheus metrics.
+  - `internal/game/` — D20 combat engine, tile/land generation, scavenging, building explore, vehicle find.
+  - `internal/character/` — Character model, random generator (8 classes), SQLite persistence via `modernc.org/sqlite` (no CGO).
+  - `internal/resources/` — Static game data: 8 classes, 10 monsters, 10 tile types, 14 supplies, 6 craftable items, 6 vehicles.
+  - `internal/ai/ollama.go` — Ollama HTTP client for Sphinx riddles and monster dialogue; graceful fallback if Ollama unavailable.
+  - `internal/obs/` — Prometheus metrics (promauto), alert rules (4 rules), Prometheus scrape config.
+  - `web/static/` — jQuery 3.7.1 game UI, admin dashboard, post-apocalyptic dark CSS, PWA manifest.
+  - `dockerfile` — Multi-stage Alpine build, non-root user (`m20:m20`), exposes 8082.
+  - `docker-compose.yml` — m20-game + Ollama + Prometheus + Grafana.
+  - `Makefile`, `scripts/` — bootstrap, unit_test, chaos_test (real 404 validation fixed from weather-service).
+  - README.md in every directory.
+
+## 2026-03-02
 
 - Fixed `apps/weather-service/scripts/bootstrap/bootstrap.sh`:
   - Replaced deprecated `docker-compose` (hyphen CLI) with `docker compose` on all 4 invocations.

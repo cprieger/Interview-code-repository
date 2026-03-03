@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="M20 — Survive the dungeon. Post-apocalyptic tabletop RPG.">
+  <title>M20 — Escape the Dungeon</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ── Header ──────────────────────────────────────────────────────── -->
+    <header>
+      <h1>M20 <span class="subtitle">Escape the Dungeon</span></h1>
+      <div id="session-info">
+        <span id="char-name-display"></span>
+        <span id="char-class-display"></span>
+        <span id="hp-display"></span>
+      </div>
+    </header>
+
+    <!-- ── Create Character ──────────────────────────────────────────────── -->
+    <section id="create-section" class="panel">
+      <h2>Create Your Survivor</h2>
+      <div class="form-row">
+        <input id="char-name" type="text" placeholder="Survivor name" maxlength="32" />
+        <select id="char-class">
+          <option value="">— Random class —</option>
+        </select>
+        <button id="create-btn" class="btn-primary">Enter the Dungeon</button>
+      </div>
+      <div id="class-info" class="class-info hidden"></div>
+    </section>
+
+    <!-- ── Game Panel ─────────────────────────────────────────────────────── -->
+    <section id="game-section" class="panel hidden">
+
+      <!-- Stats bar -->
+      <div id="stats-bar" class="stats-bar"></div>
+
+      <!-- Map -->
+      <div id="map-section">
+        <h2>Map <button id="generate-map-btn" class="btn-sm">Generate Map</button></h2>
+        <div id="map-grid" class="map-grid"></div>
+      </div>
+
+      <!-- Actions -->
+      <div id="action-bar" class="action-bar">
+        <button id="scavenge-btn" class="btn-action">Scavenge</button>
+        <button id="explore-btn" class="btn-action">Explore Building</button>
+        <button id="combat-btn" class="btn-action">Random Encounter</button>
+        <button id="riddle-btn" class="btn-action btn-ai">Ask the Sphinx 🤖</button>
+      </div>
+
+      <!-- Log -->
+      <div id="game-log">
+        <h3>Journal</h3>
+        <div id="log-entries"></div>
+      </div>
+
+      <!-- Inventory -->
+      <div id="inventory-panel">
+        <h3>Inventory <span id="inv-count"></span></h3>
+        <div id="inventory-list"></div>
+        <div id="craft-section">
+          <button id="craft-btn" class="btn-sm">Check What I Can Craft</button>
+          <div id="craft-results" class="hidden"></div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ── Loading / Error states ─────────────────────────────────────────── -->
+    <div id="loading" class="loading hidden">
+      <span class="spinner"></span> Working…
+    </div>
+    <div id="error-banner" class="error-banner hidden"></div>
+
+  </div>
+
+  <script src="/js/jquery-3.7.1.min.js"></script>
+  <script src="/js/game.js"></script>
+</body>
+</html>

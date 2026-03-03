@@ -1,0 +1,91 @@
+services:
+
+  # ── M20 Game ──────────────────────────────────────────────────────────────
+  m20-game:
+    build:
+      context: .
+      dockerfile: dockerfile
+    container_name: m20-game
+    ports:
+      - "8082:8082"
+    environment:
+      PORT: "8082"
+      DB_PATH: "/app/data/m20.db"
+      OLLAMA_URL: "http://ollama:11434"
+      LOG_LEVEL: "info"
+    volumes:
+      - m20-data:/app/data
+    depends_on:
+      ollama:
+        condition: service_started
+    networks:
+      - m20-net
+      - monitoring
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # ── Ollama (local LLM — Sphinx riddles + monster dialogue) ───────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: m20-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - m20-net
+    restart: unless-stopped
+    # CPU-only mode — no GPU required for llama3.2:1b
+
+  # ── Prometheus ────────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: m20-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./internal/obs/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./internal/obs/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - monitoring
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+
+  # ── Grafana ────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: m20-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+networks:
+  m20-net:
+    driver: bridge
+  monitoring:
+    driver: bridge
+
+volumes:
+  m20-data:
+  ollama-data:
+  prometheus-data:
+  grafana-data:
