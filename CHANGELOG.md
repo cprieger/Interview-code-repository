@@ -1,3 +1,16 @@
+## 2026-03-02 (4)
+
+- Added gameplay loop to `apps/m20-game/` — buildings, monster groups, combat narration:
+  - `internal/resources/monster_groups.go` — thematic monster groups per building type (e.g. Zombie Classroom, Vampire Detective Agency, Werewolf Pack). Every building has 2–3 curated groups; group is randomised on tile generation.
+  - `internal/game/tile.go` — tile now carries `[]BuildingInstance`, each with a pre-populated `MonsterGroup`. Building count scales with tile danger (2–4 buildings).
+  - `internal/ai/ollama.go` — expanded with `BuildingEntrance`, `MonsterDialogue`, `CombatHit`, `CombatMiss`, `MonsterDefeated` methods; per-monster fallback lines for all 10 monsters.
+  - `cmd/server/main.go` — added `POST /api/building/enter` (entrance flavor + group) and `POST /api/combat/encounter` (D20 roll + AI narration + hit/miss).
+  - `web/static/js/game.js` — full gameplay loop: Map → Click Tile → Building List → Enter Building → Monster Group → Combat → Loot/XP.
+  - `web/static/index.html` — new tile-panel (building list), building-panel (monster group + combat section).
+  - `web/static/css/style.css` — new classes: building rows, monster cards, HP bar (green/orange/red), combat section, cleared-victory state.
+  - `web/static/js/admin.js` + `admin.html` — test cards for both new endpoints with Ollama status feedback.
+  - `.claude/agents/agon.md` — new gameplay loop specialist agent (Agon, Greek personification of contest).
+
 ## 2026-03-02 (3)
 
 - Added `.claude/agents/` — native Claude Code sub-agent persona team:

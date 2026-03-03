@@ -102,6 +102,13 @@ func buildAPIHandler(store *character.Store, aiClient *ai.Client) http.Handler {
 		case path == "/api/combat/roll" && method == http.MethodPost:
 			handleCombatRoll(w, r)
 
+		case path == "/api/combat/encounter" && method == http.MethodPost:
+			handleCombatEncounter(w, r, aiClient)
+
+		// ── Building entry ────────────────────────────────────────────────────
+		case path == "/api/building/enter" && method == http.MethodPost:
+			handleBuildingEnter(w, r, aiClient)
+
 		// ── AI / Sphinx ───────────────────────────────────────────────────────
 		case path == "/api/ai/riddle" && method == http.MethodGet:
 			handleRiddle(w, r, aiClient)
@@ -207,6 +214,92 @@ func handleRiddle(w http.ResponseWriter, r *http.Request, aiClient *ai.Client) {
 	writeJSON(w, http.StatusOK, result)
 }
 
+// handleBuildingEnter enters a building and returns its monster group + Ollama flavor text.
+// POST /api/building/enter  {"building": "Hospital", "character_class": "Brawler"}
+func handleBuildingEnter(w http.ResponseWriter, r *http.Request, aiClient *ai.Client) {
+	var req struct {
+		Building       string `json:"building"`
+		CharacterClass string `json:"character_class"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_BODY", "invalid JSON body", "send {building: \"...\", character_class: \"...\"}")
+		return
+	}
+
+	instance := game.GenerateSingleBuilding(req.Building)
+
+	// Ask Ollama to set the scene — 10s timeout, fallback if unavailable.
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	flavorText := aiClient.BuildingEntrance(ctx, instance.Building.Name, instance.MonsterGroup.Name)
+
+	// Get the leader monster's opening line.
+	var leaderDialogue string
+	if len(instance.MonsterGroup.Monsters) > 0 {
+		leader := instance.MonsterGroup.Monsters[len(instance.MonsterGroup.Monsters)-1]
+		ctx2, cancel2 := context.WithTimeout(r.Context(), 10*time.Second)
+		defer cancel2()
+		leaderDialogue = aiClient.MonsterDialogue(ctx2, leader.Name)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"building":        instance.Building,
+		"monster_group":   instance.MonsterGroup,
+		"flavor_text":     flavorText,
+		"leader_dialogue": leaderDialogue,
+	})
+}
+
+// handleCombatEncounter runs a single combat roll against a named monster with AI narration.
+// POST /api/combat/encounter  {"monster": "Zombie", "stat": 5, "bonus": 0, "character_class": "Brawler", "crit_threshold": 20}
+func handleCombatEncounter(w http.ResponseWriter, r *http.Request, aiClient *ai.Client) {
+	var req struct {
+		Monster        string `json:"monster"`
+		Stat           int    `json:"stat"`
+		Bonus          int    `json:"bonus"`
+		CharacterClass string `json:"character_class"`
+		CritThreshold  int    `json:"crit_threshold"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_BODY", "invalid JSON body", "send {monster,stat,bonus,character_class}")
+		return
+	}
+	if req.Monster == "" {
+		writeError(w, http.StatusBadRequest, "MISSING_MONSTER", "monster name required", "use a monster name from the group")
+		return
+	}
+	if req.CharacterClass == "" {
+		req.CharacterClass = "Survivor"
+	}
+	if req.CritThreshold <= 0 {
+		req.CritThreshold = 20
+	}
+
+	rollReq := game.CombatRollRequest{StatValue: req.Stat, Bonus: req.Bonus}
+	result := game.Roll(rollReq, req.CritThreshold)
+
+	// AI narration — 8s timeout, fallback always ready.
+	ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
+	defer cancel()
+
+	var narration string
+	switch result.Outcome {
+	case game.OutcomeCritSuccess, game.OutcomeSuccess:
+		isCrit := result.Outcome == game.OutcomeCritSuccess
+		narration = aiClient.CombatHit(ctx, req.Monster, req.CharacterClass, isCrit)
+		obs.MonstersDefeatedTotal.WithLabelValues(req.Monster).Inc()
+	case game.OutcomeCritFailure, game.OutcomeFailure:
+		isCritFail := result.Outcome == game.OutcomeCritFailure
+		narration = aiClient.CombatMiss(ctx, req.Monster, isCritFail)
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"roll":      result,
+		"narration": narration,
+		"hit":       result.Outcome == game.OutcomeSuccess || result.Outcome == game.OutcomeCritSuccess,
+	})
+}
+
 func handleCreateCharacter(w http.ResponseWriter, r *http.Request, store *character.Store) {
 	var req character.GenerateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -301,6 +394,10 @@ func normalizePath(path string) string {
 	switch {
 	case strings.HasPrefix(path, "/api/character/"):
 		return "/api/character/:id"
+	case strings.HasPrefix(path, "/api/building/"):
+		return "/api/building/:action"
+	case strings.HasPrefix(path, "/api/combat/"):
+		return "/api/combat/:action"
 	case strings.HasPrefix(path, "/js/"):
 		return "/js/*"
 	case strings.HasPrefix(path, "/css/"):

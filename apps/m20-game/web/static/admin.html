@@ -51,6 +51,24 @@
         </div>
 
         <div class="admin-card">
+          <h3>Enter Building (Ollama)</h3>
+          Building: <input id="enter-building" type="text" value="Hospital" style="width:120px" /><br>
+          Class: <input id="enter-class" type="text" value="Brawler" style="width:100px" />
+          <button class="btn-sm" id="test-building-enter">POST /api/building/enter</button>
+          <pre id="out-building-enter"></pre>
+        </div>
+
+        <div class="admin-card">
+          <h3>Combat Encounter (Ollama)</h3>
+          Monster: <input id="enc-monster" type="text" value="Zombie" style="width:100px" /><br>
+          Stat: <input id="enc-stat" type="number" value="5" min="1" max="10" style="width:50px" />
+          Bonus: <input id="enc-bonus" type="number" value="0" min="0" max="5" style="width:50px" />
+          Class: <input id="enc-class" type="text" value="Brawler" style="width:100px" />
+          <button class="btn-sm" id="test-combat-encounter">POST /api/combat/encounter</button>
+          <pre id="out-combat-encounter"></pre>
+        </div>
+
+        <div class="admin-card">
           <h3>Combat Roll</h3>
           Stat: <input id="combat-stat" type="number" value="5" min="1" max="10" style="width:50px" />
           Bonus: <input id="combat-bonus" type="number" value="0" min="0" max="5" style="width:50px" />
