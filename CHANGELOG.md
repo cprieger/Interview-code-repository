@@ -1,5 +1,12 @@
 ## 2026-03-02 (3)
 
+- Added `.claude/agents/` — native Claude Code sub-agent persona team:
+  - 9 agents: Pixel (UI), Gopher (Backend), Bridge (API), Vera (QA), Charity (SRE), Terra (DevOps), Cipher (Security), Droid (Mobile), Atlas (PM)
+  - Each agent has full project context, tech expertise, "Everything Has an Experience" philosophy, red flags, and team dynamics
+  - Invokable via `/agents` or natural language in any Claude Code session
+  - `.agents/README.md` documents the team roster and how to use them
+
+## 2026-03-02 (2)
 - Added `apps/m20-game/` — full M20 RPG game engine, Phase 2 of the platform roadmap:
   - `cmd/server/main.go` — HTTP server with all 12 REST endpoints, SRE middleware, structured JSON errors, Prometheus metrics.
   - `internal/game/` — D20 combat engine, tile/land generation, scavenging, building explore, vehicle find.
