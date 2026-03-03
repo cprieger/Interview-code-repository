@@ -1,0 +1,56 @@
+groups:
+  - name: m20-game
+    rules:
+
+      # ── SLO: p99 combat roll < 100ms ──────────────────────────────────────
+      - alert: M20_CombatLatency_High
+        expr: >
+          histogram_quantile(0.99,
+            rate(m20_http_request_duration_seconds_bucket{path="/api/combat/roll"}[1m])
+          ) > 0.1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Combat rolls are slow — players experiencing lag"
+          description: "p99 combat roll latency is {{ $value | humanizeDuration }} (SLO: <100ms)"
+          runbook: "Check m20-game logs. Verify DB not under heavy write load."
+
+      # ── AI degraded (>10% timeout rate over 5m) ────────────────────────────
+      - alert: M20_AI_Degraded
+        expr: >
+          rate(m20_ai_requests_total{status="timeout"}[5m])
+          /
+          rate(m20_ai_requests_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ollama timing out — Sphinx riddles unavailable"
+          description: "AI timeout rate: {{ $value | humanizePercentage }}"
+          runbook: "Check ollama container. Model may need to be pulled: `docker exec m20-ollama ollama pull llama3.2:1b`"
+
+      # ── Zero game traffic for 10 minutes ──────────────────────────────────
+      - alert: M20_Traffic_Zero
+        expr: rate(m20_games_started_total[10m]) == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No games started in 10 minutes — possible service issue"
+          description: "m20-game may be down or unreachable."
+          runbook: "curl http://m20-game:8082/health — if 200, service is up but no players."
+
+      # ── High error rate ────────────────────────────────────────────────────
+      - alert: M20_ErrorRate_High
+        expr: >
+          rate(m20_http_requests_total{code=~"5.."}[1m])
+          /
+          rate(m20_http_requests_total[1m]) > 0.05
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High 5xx error rate on m20-game"
+          description: "5xx rate: {{ $value | humanizePercentage }}"
+          runbook: "Check m20-game logs for panics or DB errors."

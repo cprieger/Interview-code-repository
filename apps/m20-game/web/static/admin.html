@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>M20 — Admin Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="admin">
+  <div id="app">
+
+    <header>
+      <h1>M20 <span class="subtitle">Admin Dashboard</span></h1>
+      <nav>
+        <a href="/" class="btn-sm">← Game</a>
+        <a href="http://localhost:9090" target="_blank" class="btn-sm">Prometheus</a>
+        <a href="http://localhost:3000" target="_blank" class="btn-sm">Grafana</a>
+      </nav>
+    </header>
+
+    <!-- ── API Test Panel ─────────────────────────────────────────────────── -->
+    <section class="panel">
+      <h2>API Tester</h2>
+
+      <div class="admin-grid">
+
+        <div class="admin-card">
+          <h3>Health</h3>
+          <button class="btn-sm" id="test-health">GET /health</button>
+          <pre id="out-health"></pre>
+        </div>
+
+        <div class="admin-card">
+          <h3>Generate Tile</h3>
+          <button class="btn-sm" id="test-tile">GET /api/tile</button>
+          <pre id="out-tile"></pre>
+        </div>
+
+        <div class="admin-card">
+          <h3>Generate Map</h3>
+          <input id="tile-count" type="number" value="9" min="1" max="25" style="width:60px" />
+          <button class="btn-sm" id="test-land">POST /api/land</button>
+          <pre id="out-land"></pre>
+        </div>
+
+        <div class="admin-card">
+          <h3>Scavenge</h3>
+          Level: <input id="scavenge-level" type="number" value="5" min="1" max="10" style="width:50px" />
+          <button class="btn-sm" id="test-scavenge">GET /api/scavenge</button>
+          <pre id="out-scavenge"></pre>
+        </div>
+
+        <div class="admin-card">
+          <h3>Combat Roll</h3>
+          Stat: <input id="combat-stat" type="number" value="5" min="1" max="10" style="width:50px" />
+          Bonus: <input id="combat-bonus" type="number" value="0" min="0" max="5" style="width:50px" />
+          <button class="btn-sm" id="test-combat">POST /api/combat/roll</button>
+          <pre id="out-combat"></pre>
+        </div>
+
+        <div class="admin-card">
+          <h3>Sphinx Riddle (Ollama)</h3>
+          <button class="btn-sm" id="test-riddle">GET /api/ai/riddle</button>
+          <span id="riddle-status"></span>
+          <pre id="out-riddle"></pre>
+        </div>
+
+        <div class="admin-card">
+          <h3>Create Character</h3>
+          Name: <input id="new-name" type="text" value="Test Survivor" style="width:120px" />
+          Class: <input id="new-class" type="text" value="Brawler" style="width:100px" />
+          <button class="btn-sm" id="test-create-char">POST /api/character</button>
+          <pre id="out-create-char"></pre>
+        </div>
+
+        <div class="admin-card">
+          <h3>Load Character</h3>
+          ID: <input id="load-char-id" type="text" placeholder="uuid" style="width:200px" />
+          <button class="btn-sm" id="test-load-char">GET /api/character/:id/sheet</button>
+          <pre id="out-load-char"></pre>
+        </div>
+
+        <div class="admin-card">
+          <h3>Items + Craft</h3>
+          <button class="btn-sm" id="test-items">GET /api/items</button>
+          <pre id="out-items"></pre>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ── Metrics iframe ─────────────────────────────────────────────────── -->
+    <section class="panel">
+      <h2>Raw Metrics <a href="/metrics" target="_blank" class="btn-sm">Open</a></h2>
+      <pre id="raw-metrics">Click to load</pre>
+      <button class="btn-sm" id="load-metrics">Load /metrics</button>
+    </section>
+
+    <div id="error-banner" class="error-banner hidden"></div>
+  </div>
+
+  <script src="/js/jquery-3.7.1.min.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>
