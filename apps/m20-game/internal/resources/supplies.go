@@ -10,10 +10,11 @@ type Supply struct {
 
 // CraftableItem is something the player can build from components.
 type CraftableItem struct {
-	Name         string   `json:"name"`
-	Description  string   `json:"description"`
-	Materials    []string `json:"materials"`
-	CraftingLevel int     `json:"crafting_level"` // minimum crafting stat required
+	Name          string   `json:"name"`
+	Description   string   `json:"description"`
+	Materials     []string `json:"materials"`
+	CraftingLevel int      `json:"crafting_level"` // minimum crafting stat required
+	Equippable    bool     `json:"equippable"`     // true if this item can be equipped
 }
 
 // Supplies returns all scavengeable items.
@@ -44,38 +45,54 @@ func CraftableItems() []CraftableItem {
 			Description:   "Scrap metal duct-taped to a vest. Better than nothing.",
 			Materials:     []string{"Scrap Metal", "Duct Tape", "Wire"},
 			CraftingLevel: 4,
+			Equippable:    true,
 		},
 		{
 			Name:          "Molotov Cocktail",
 			Description:   "Simple, effective, and very hard to un-throw.",
 			Materials:     []string{"Fuel", "Duct Tape"},
 			CraftingLevel: 2,
+			Equippable:    false,
 		},
 		{
 			Name:          "Medkit",
 			Description:   "An upgrade from the basic bandage. Restores more HP.",
 			Materials:     []string{"Bandage", "Antibiotics", "Painkillers"},
 			CraftingLevel: 3,
+			Equippable:    true,
 		},
 		{
 			Name:          "Radio Beacon",
 			Description:   "Calls for help. Whether help comes is another question.",
 			Materials:     []string{"Radio Parts", "Wire", "Tools"},
 			CraftingLevel: 5,
+			Equippable:    true,
 		},
 		{
 			Name:          "Reinforced Bat",
 			Description:   "A classic, improved.",
 			Materials:     []string{"Scrap Metal", "Wire"},
 			CraftingLevel: 2,
+			Equippable:    true,
 		},
 		{
 			Name:          "Vehicle Repair Kit",
 			Description:   "Patches up your ride enough to keep moving.",
 			Materials:     []string{"Engine Parts", "Duct Tape", "Tools"},
 			CraftingLevel: 4,
+			Equippable:    true,
 		},
 	}
+}
+
+// CraftableItemByName returns the craftable item with the given name, or nil.
+func CraftableItemByName(name string) *CraftableItem {
+	for _, item := range CraftableItems() {
+		if item.Name == name {
+			return &item
+		}
+	}
+	return nil
 }
 
 // CanCraft returns items craftable from the given materials at the given crafting level.

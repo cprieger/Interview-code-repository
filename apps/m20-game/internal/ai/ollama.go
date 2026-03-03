@@ -97,12 +97,15 @@ type RiddleResult struct {
 	Fallback bool   `json:"fallback"` // true if Ollama was unavailable
 }
 
+// tonePrefix is prepended to all Ollama prompts to set the ZAMN campy B-movie tone.
+const tonePrefix = "You are the narrator of a campy B-movie zombie apocalypse comedy — think Zombies Ate My Neighbors crossed with Army of Darkness. Be fun, slightly absurd, and dramatically over-the-top. The monsters are scary but also ridiculous. The survivors are heroic but also kind of ridiculous too."
+
 // GenerateRiddle asks Ollama for a post-apocalyptic Sphinx riddle.
 // Falls back to a hardcoded riddle if Ollama is unavailable.
 func (c *Client) GenerateRiddle(ctx context.Context) RiddleResult {
-	prompt := `You are the Sphinx in a post-apocalyptic dungeon.
+	prompt := `You are the Sphinx — ancient, dramatic, and deeply committed to the bit.
 Create a short riddle (2-3 lines) with a one-word answer.
-The theme should be survival, decay, or the wasteland.
+The theme should be survival, decay, or the wasteland. Make it fun and slightly absurd.
 Format: RIDDLE: [riddle text] ANSWER: [one word]`
 
 	resp, err := c.generate(ctx, "riddle", prompt)
@@ -122,10 +125,10 @@ Format: RIDDLE: [riddle text] ANSWER: [one word]`
 // BuildingEntrance generates flavor text when a player enters a building.
 // It sets the atmosphere before the monster group is revealed.
 func (c *Client) BuildingEntrance(ctx context.Context, buildingName, groupName string) string {
-	prompt := fmt.Sprintf(`You are the narrator of a post-apocalyptic dungeon RPG.
-A survivor has just entered a %s and encounters "%s".
-Write 2-3 sentences of atmospheric description: what they see, smell, or hear BEFORE the monsters notice them.
-Be specific and visceral. No generic phrases. Under 60 words.`, buildingName, groupName)
+	prompt := fmt.Sprintf(`%s
+A survivor just kicked open the door of a %s and came face-to-face with "%s".
+Write 2-3 sentences of B-movie atmospheric description: what they see, smell, or hear BEFORE the monsters notice them.
+Be dramatic. Be slightly ridiculous. Under 60 words. No stage directions.`, tonePrefix, buildingName, groupName)
 
 	resp, err := c.generate(ctx, "entrance", prompt)
 	if err != nil || resp == "" {
@@ -139,9 +142,10 @@ Be specific and visceral. No generic phrases. Under 60 words.`, buildingName, gr
 
 // MonsterDialogue generates the opening line when a monster group spots the player.
 func (c *Client) MonsterDialogue(ctx context.Context, monsterName string) string {
-	prompt := fmt.Sprintf(`You are a %s in a post-apocalyptic dungeon.
-Say ONE threatening sentence (under 15 words) to a survivor you are about to attack.
-Stay in character. Be menacing. No meta-commentary or stage directions.`, monsterName)
+	prompt := fmt.Sprintf(`%s
+You are a %s in a zombie apocalypse B-movie. You just noticed a survivor.
+Say ONE line (under 15 words) that is menacing but also kind of ridiculous.
+Stay in character. Be dramatic. No stage directions.`, tonePrefix, monsterName)
 
 	resp, err := c.generate(ctx, "dialogue", prompt)
 	if err != nil || resp == "" {
@@ -157,10 +161,11 @@ Stay in character. Be menacing. No meta-commentary or stage directions.`, monste
 func (c *Client) CombatHit(ctx context.Context, monsterName, characterClass string, isCrit bool) string {
 	intensity := "solid hit"
 	if isCrit {
-		intensity = "devastating critical hit"
+		intensity = "absolutely devastating, movie-worthy critical hit"
 	}
-	prompt := fmt.Sprintf(`A %s lands a %s against a %s in a post-apocalyptic dungeon.
-Describe the impact in ONE sentence (under 20 words). Be visceral. Present tense.`, characterClass, intensity, monsterName)
+	prompt := fmt.Sprintf(`%s
+A %s lands a %s against a %s.
+Describe the impact in ONE sentence (under 20 words). Be dramatic and slightly over-the-top. Present tense.`, tonePrefix, characterClass, intensity, monsterName)
 
 	resp, err := c.generate(ctx, "combat_hit", prompt)
 	if err != nil || resp == "" {
@@ -174,12 +179,13 @@ Describe the impact in ONE sentence (under 20 words). Be visceral. Present tense
 
 // CombatMiss describes a failed attack — the scramble, the near miss, the panic.
 func (c *Client) CombatMiss(ctx context.Context, monsterName string, isCritFail bool) string {
-	missType := "misses"
+	missType := "misses badly against"
 	if isCritFail {
-		missType = "critically fumbles against"
+		missType = "catastrophically, hilariously fumbles against"
 	}
-	prompt := fmt.Sprintf(`A survivor %s a %s in a post-apocalyptic dungeon.
-Describe the miss in ONE sentence (under 20 words). Show the danger. Present tense.`, missType, monsterName)
+	prompt := fmt.Sprintf(`%s
+A survivor %s a %s.
+Describe the miss in ONE sentence (under 20 words). Be dramatic and slightly humiliating. Present tense.`, tonePrefix, missType, monsterName)
 
 	resp, err := c.generate(ctx, "combat_miss", prompt)
 	if err != nil || resp == "" {
@@ -193,8 +199,9 @@ Describe the miss in ONE sentence (under 20 words). Show the danger. Present ten
 
 // MonsterDefeated describes the aftermath when all monsters in a group are beaten.
 func (c *Client) MonsterDefeated(ctx context.Context, groupName, buildingName string) string {
-	prompt := fmt.Sprintf(`A survivor has defeated the "%s" inside a %s in a post-apocalyptic dungeon.
-Write ONE sentence (under 25 words) describing what the room looks like now. Present tense.`, groupName, buildingName)
+	prompt := fmt.Sprintf(`%s
+A survivor just cleared the "%s" inside a %s. Absolute victory. Probably got some on them.
+Write ONE sentence (under 25 words) describing what the room looks like now. Be triumphant and slightly gross. Present tense.`, tonePrefix, groupName, buildingName)
 
 	resp, err := c.generate(ctx, "victory", prompt)
 	if err != nil || resp == "" {
@@ -246,42 +253,42 @@ func fallbackRiddle() RiddleResult {
 }
 
 func fallbackEntrance(building, group string) string {
-	return fmt.Sprintf("You step into the %s. The air is wrong. The %s is here, and they know it too.", building, group)
+	return fmt.Sprintf("You kick open the door of the %s. It smells like bad decisions and something that used to be a person. The %s hasn't spotted you yet — which honestly feels like a personal insult.", building, group)
 }
 
 func fallbackDialogue(monster string) string {
 	lines := map[string]string{
-		"Zombie":       "...(groaning intensifies)...",
-		"Vampire":      "You should not have come here.",
-		"Werewolf":     "*(low, territorial growl)*",
-		"Mummy":        "You disturb ancient rest.",
-		"Frankenstein": "NEW. THING. HERE.",
-		"Basilisk":     "*(the scrape of scales on stone)*",
-		"Golem":        "INTRUDER. PROTOCOL. INITIATED.",
-		"Sphinx":       "Answer correctly and you may pass. Answer wrong... well.",
-		"Wraith":       "*(cold silence, then a scream)*",
-		"Windego":      "I remember being hungry. I still am.",
+		"Zombie":       "...(groaning intensifies dramatically)...",
+		"Vampire":      "You are SO overdressed for this apocalypse. Unlike me.",
+		"Werewolf":     "*(low territorial growl that somehow sounds offended)*",
+		"Mummy":        "I have been waiting 3,000 years for someone to bother me.",
+		"Frankenstein": "NEW. THING. HERE. FRIEND? ...No.",
+		"Basilisk":     "*(the sound of scales and very smug silence)*",
+		"Golem":        "INTRUDER. PROTOCOL. INITIATED. HAVE A NICE DAY.",
+		"Sphinx":       "Wrong answer means I eat you. Right answer means I also eat you. ...Kidding. Maybe.",
+		"Wraith":       "*(the temperature drops and something is VERY upset)*",
+		"Windego":      "I remember being human once. I also remember pizza. Both are gone.",
 	}
 	if line, ok := lines[monster]; ok {
 		return line
 	}
-	return fmt.Sprintf("The %s regards you with ancient, terrible patience.", monster)
+	return fmt.Sprintf("The %s looks at you with the energy of someone who has been waiting all day for this.", monster)
 }
 
 func fallbackCombatHit(monster string, isCrit bool) string {
 	if isCrit {
-		return fmt.Sprintf("Perfect strike — the %s staggers backward with a howl.", monster)
+		return fmt.Sprintf("SPECTACULAR hit — the %s does the full movie stagger and lands in something unfortunate.", monster)
 	}
-	return fmt.Sprintf("Your attack connects. The %s reels but keeps coming.", monster)
+	return fmt.Sprintf("Your attack connects! The %s reels dramatically. Points for commitment.", monster)
 }
 
 func fallbackCombatMiss(monster string, isCritFail bool) string {
 	if isCritFail {
-		return fmt.Sprintf("You stumble badly — the %s nearly has you.", monster)
+		return fmt.Sprintf("You trip over literally nothing and the %s judges you openly for it.", monster)
 	}
-	return fmt.Sprintf("Your swing goes wide. The %s doesn't miss the opening.", monster)
+	return fmt.Sprintf("Swing and a miss! The %s seems almost embarrassed for you.", monster)
 }
 
 func fallbackVictory(group string) string {
-	return fmt.Sprintf("The %s is gone. The room is yours now — battered, quiet, survivable.", group)
+	return fmt.Sprintf("The %s is history. You do a mental victory lap. The room is yours now. It smells terrible. Totally worth it.", group)
 }
