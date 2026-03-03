@@ -42,15 +42,66 @@
 
       <!-- Map -->
       <div id="map-section">
-        <h2>Map <button id="generate-map-btn" class="btn-sm">Generate Map</button></h2>
+        <h2>Map <button id="generate-map-btn" class="btn-sm">New Map</button></h2>
+        <p class="map-hint">Click a tile to explore its buildings.</p>
         <div id="map-grid" class="map-grid"></div>
+      </div>
+
+      <!-- Tile panel — building list for selected tile -->
+      <div id="tile-panel" class="panel tile-panel hidden">
+        <div class="sub-panel-header">
+          <h3 id="tile-panel-name"></h3>
+          <button id="back-to-map-btn" class="btn-sm">← Map</button>
+        </div>
+        <p id="tile-panel-desc" class="sub-panel-desc"></p>
+        <div id="building-list" class="building-list"></div>
+      </div>
+
+      <!-- Building panel — monster group + combat -->
+      <div id="building-panel" class="panel building-panel hidden">
+        <div class="sub-panel-header">
+          <h3 id="bldg-name"></h3>
+          <button id="back-to-tile-btn" class="btn-sm">← Buildings</button>
+        </div>
+        <p id="bldg-description" class="sub-panel-desc"></p>
+
+        <!-- Ollama flavor text -->
+        <div id="bldg-flavor" class="flavor-text ai-text"></div>
+
+        <!-- Monster group header -->
+        <div class="monster-group-header">
+          <strong id="bldg-group-name" class="group-name"></strong>
+          <span id="bldg-group-desc" class="group-desc"></span>
+        </div>
+        <div id="bldg-leader-dialogue" class="leader-dialogue ai-text"></div>
+
+        <!-- Monster cards list -->
+        <div id="monster-group-list" class="monster-group-list"></div>
+
+        <!-- Combat section (hidden until Fight! clicked) -->
+        <div id="combat-section" class="combat-section hidden">
+          <div class="combat-header">
+            <h3>⚔ <span id="combat-monster-name"></span></h3>
+          </div>
+          <p id="combat-monster-desc" class="combat-desc"></p>
+          <div class="hp-bar-container">
+            <div id="combat-hp-bar" class="hp-fill hp-high"></div>
+          </div>
+          <div class="hp-text"><span id="combat-hp-text"></span> HP remaining</div>
+          <div id="combat-narration" class="combat-narration"></div>
+          <div class="combat-actions">
+            <button id="combat-roll-btn" class="btn-primary">Roll Attack</button>
+            <button id="combat-flee-btn" class="btn-action">Flee</button>
+          </div>
+        </div>
+
+        <!-- Fight / cleared state -->
+        <div id="fight-section"></div>
       </div>
 
       <!-- Actions -->
       <div id="action-bar" class="action-bar">
         <button id="scavenge-btn" class="btn-action">Scavenge</button>
-        <button id="explore-btn" class="btn-action">Explore Building</button>
-        <button id="combat-btn" class="btn-action">Random Encounter</button>
         <button id="riddle-btn" class="btn-action btn-ai">Ask the Sphinx 🤖</button>
       </div>
 

@@ -127,7 +127,8 @@ input:focus, select:focus { outline: none; border-color: var(--accent2); }
 
 #session-info { display: flex; gap: 12px; align-items: center; font-size: 13px; }
 #char-name-display { color: var(--accent2); font-weight: bold; }
-#hp-display { color: var(--success); }
+#hp-display { color: var(--success); transition: color 0.3s; }
+#hp-display.hp-damaged { color: var(--accent); }
 
 /* ── Stats bar ───────────────────────────────────────────────────────── */
 
@@ -146,6 +147,8 @@ input:focus, select:focus { outline: none; border-color: var(--accent2); }
 
 /* ── Map ─────────────────────────────────────────────────────────────── */
 
+.map-hint { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+
 .map-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
@@ -160,17 +163,207 @@ input:focus, select:focus { outline: none; border-color: var(--accent2); }
   cursor: pointer;
   text-align: center;
   font-size: 12px;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, transform 0.1s;
 }
-.map-tile:hover { border-color: var(--accent2); }
-.map-tile.explored { opacity: 0.5; }
+.map-tile:hover { border-color: var(--accent2); transform: scale(1.04); }
+.map-tile:active { transform: scale(0.98); }
+.map-tile.explored { opacity: 0.45; }
 .map-tile .tile-icon { font-size: 1.4rem; display: block; margin-bottom: 4px; }
-.map-tile .tile-name { color: var(--muted); font-size: 10px; }
+.map-tile .tile-name { color: var(--muted); font-size: 10px; display: block; }
+.map-tile .tile-danger { font-size: 8px; display: block; margin-top: 2px; }
 .danger-1 { border-color: #27ae60; }
 .danger-2 { border-color: #f39c12; }
 .danger-3 { border-color: #e67e22; }
 .danger-4 { border-color: #c0392b; }
 .danger-5 { border-color: #8e44ad; }
+
+/* ── Tile Panel — sub-panel inside game section ──────────────────────── */
+
+.tile-panel, .building-panel {
+  border-left: 3px solid var(--accent2);
+  margin-top: 0;
+}
+
+.sub-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.sub-panel-header h3 { color: var(--accent2); margin: 0; }
+
+.sub-panel-desc {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 12px;
+  font-style: italic;
+}
+
+/* ── Building list (inside tile panel) ───────────────────────────────── */
+
+.building-list { display: flex; flex-direction: column; gap: 8px; }
+
+.building-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  transition: border-color 0.15s;
+}
+.building-row:hover { border-color: var(--accent2); }
+.building-row.cleared { opacity: 0.5; }
+
+.building-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.building-name { font-weight: bold; font-size: 13px; }
+.building-group { color: var(--muted); font-size: 12px; }
+.building-threat { font-size: 11px; color: var(--accent2); }
+
+.cleared-badge {
+  font-size: 11px;
+  color: var(--success);
+  border: 1px solid var(--success);
+  border-radius: var(--radius);
+  padding: 2px 8px;
+}
+.btn-enter { white-space: nowrap; }
+
+/* ── Building Panel ──────────────────────────────────────────────────── */
+
+.building-panel { border-left-color: var(--accent); }
+
+/* AI-generated text (Ollama) */
+.ai-text {
+  color: var(--ai);
+  font-style: italic;
+  font-size: 13px;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+.flavor-text { margin-bottom: 10px; }
+
+.monster-group-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.group-name { color: var(--accent); font-size: 14px; }
+.group-desc { color: var(--muted); font-size: 12px; }
+
+.leader-dialogue {
+  margin-bottom: 14px;
+  padding-left: 10px;
+  border-left: 2px solid var(--ai);
+  font-size: 12px;
+}
+
+/* ── Monster cards ───────────────────────────────────────────────────── */
+
+.monster-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.monster-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  transition: border-color 0.2s, opacity 0.3s;
+}
+.monster-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 6px rgba(192, 57, 43, 0.4);
+}
+.monster-card.defeated {
+  opacity: 0.3;
+  text-decoration: line-through;
+  border-color: var(--muted);
+}
+
+.monster-card-info { margin-bottom: 6px; }
+.monster-name { font-weight: bold; color: var(--text); margin-right: 8px; }
+.monster-desc { font-size: 11px; color: var(--muted); display: block; margin-top: 2px; }
+
+.monster-card-stats { display: flex; gap: 6px; flex-wrap: wrap; }
+.stat-chip {
+  font-size: 11px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1px 7px;
+  color: var(--muted);
+}
+.xp-chip { color: var(--success); border-color: var(--success); }
+
+/* ── Combat section ──────────────────────────────────────────────────── */
+
+.combat-section {
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.combat-header h3 { color: var(--accent); font-size: 1rem; margin-bottom: 6px; }
+.combat-desc { font-size: 12px; color: var(--muted); margin-bottom: 12px; font-style: italic; }
+
+/* HP bar */
+.hp-bar-container {
+  background: var(--surface2);
+  border-radius: 2px;
+  height: 8px;
+  margin-bottom: 4px;
+  overflow: hidden;
+}
+.hp-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease, background-color 0.4s;
+}
+.hp-high { background: var(--success); }
+.hp-mid  { background: var(--accent2); }
+.hp-low  { background: var(--accent); animation: pulse 1s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+.hp-text { font-size: 11px; color: var(--muted); margin-bottom: 12px; }
+
+.combat-narration {
+  font-size: 13px;
+  color: var(--ai);
+  font-style: italic;
+  min-height: 20px;
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+.combat-actions {
+  display: flex;
+  gap: 8px;
+}
+.combat-actions .btn-action { flex: none; }
+
+/* Fight / cleared state */
+#fight-section { margin-top: 12px; }
+.fight-btn { width: 100%; padding: 12px; font-size: 15px; }
+.cleared-victory {
+  color: var(--success);
+  border: 1px solid var(--success);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  text-align: center;
+  font-size: 13px;
+}
 
 /* ── Action bar ──────────────────────────────────────────────────────── */
 
@@ -197,9 +390,9 @@ input:focus, select:focus { outline: none; border-color: var(--accent2); }
   animation: fadeIn 0.2s ease;
 }
 .log-entry:last-child { border-bottom: none; }
-.log-entry.combat { color: var(--accent); }
+.log-entry.combat  { color: var(--accent); }
 .log-entry.success { color: var(--success); }
-.log-entry.ai { color: var(--ai); }
+.log-entry.ai      { color: var(--ai); }
 .log-entry.warning { color: var(--accent2); }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
@@ -307,4 +500,6 @@ input:focus, select:focus { outline: none; border-color: var(--accent2); }
   .stats-bar { justify-content: center; }
   .action-bar { flex-direction: column; }
   .action-bar button { width: 100%; }
+  .building-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .combat-actions { flex-direction: column; }
 }
