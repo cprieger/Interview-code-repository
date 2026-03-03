@@ -99,6 +99,53 @@
         </div>
 
         <div class="admin-card">
+          <h3>Update Character</h3>
+          <small>Uses ID from Load Character above</small><br>
+          HP: <input id="upd-hp" type="number" value="15" style="width:50px" />
+          XP: <input id="upd-xp" type="number" value="10" style="width:50px" />
+          Loc: <input id="upd-loc" type="text" value="tile-02" style="width:80px" />
+          <button class="btn-sm" id="test-update-char">PUT /api/character/:id</button>
+          <pre id="out-update-char"></pre>
+        </div>
+
+        <div class="admin-card">
+          <h3>Craft Item</h3>
+          <small>Uses ID from Load Character above</small><br>
+          Item: <input id="craft-item-name" type="text" value="Medkit" style="width:150px" />
+          <button class="btn-sm" id="test-craft-item">POST /api/character/:id/craft</button>
+          <pre id="out-craft-item"></pre>
+        </div>
+
+        <div class="admin-card">
+          <h3>Equip Item</h3>
+          <small>Uses ID from Load Character above</small><br>
+          Slot:
+          <select id="equip-slot" style="width:110px">
+            <option value="weapon">weapon</option>
+            <option value="armor">armor</option>
+            <option value="accessory">accessory</option>
+          </select><br>
+          Item: <input id="equip-item-name" type="text" value="Reinforced Bat" style="width:150px" />
+          <button class="btn-sm" id="test-equip-item">POST /api/character/:id/equip</button>
+          <pre id="out-equip-item"></pre>
+        </div>
+
+        <div class="admin-card">
+          <h3>Drop Item</h3>
+          <small>Uses ID from Load Character above</small><br>
+          Item: <input id="drop-item-name" type="text" value="Bandage" style="width:150px" />
+          <button class="btn-sm" id="test-drop-item">POST /api/character/:id/item/drop</button>
+          <pre id="out-drop-item"></pre>
+        </div>
+
+        <div class="admin-card">
+          <h3>Level Up</h3>
+          <small>Uses ID from Load Character above</small><br>
+          <button class="btn-sm" id="test-levelup">POST /api/character/:id/levelup</button>
+          <pre id="out-levelup"></pre>
+        </div>
+
+        <div class="admin-card">
           <h3>Items + Craft</h3>
           <button class="btn-sm" id="test-items">GET /api/items</button>
           <pre id="out-items"></pre>

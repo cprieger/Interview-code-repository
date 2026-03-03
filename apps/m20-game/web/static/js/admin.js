@@ -21,6 +21,11 @@
     bindTest('#test-riddle',            testRiddle);
     bindTest('#test-create-char',       testCreateChar);
     bindTest('#test-load-char',         testLoadChar);
+    bindTest('#test-update-char',       testUpdateChar);
+    bindTest('#test-craft-item',        testCraftItem);
+    bindTest('#test-equip-item',        testEquipItem);
+    bindTest('#test-drop-item',         testDropItem);
+    bindTest('#test-levelup',           testLevelUp);
     bindTest('#test-items',             testItems);
     bindTest('#load-metrics',           loadMetrics);
   });
@@ -151,6 +156,68 @@
     );
   }
 
+  function charID() {
+    var id = $('#load-char-id').val().trim();
+    if (!id) { alert('Enter a character ID in the Load Character card first.'); }
+    return id;
+  }
+
+  function testUpdateChar() {
+    var id = charID(); if (!id) return;
+    var payload = {};
+    var hp  = parseInt($('#upd-hp').val());
+    var xp  = parseInt($('#upd-xp').val());
+    var loc = $('#upd-loc').val().trim();
+    if (!isNaN(hp))  payload.hp  = hp;
+    if (!isNaN(xp))  payload.xp  = xp;
+    if (loc)         payload.location = loc;
+    put('/api/character/' + id,
+      payload,
+      function (d) { showResult('#out-update-char', d); },
+      function (x) { showErr('#out-update-char', x); }
+    );
+  }
+
+  function testCraftItem() {
+    var id = charID(); if (!id) return;
+    var name = $('#craft-item-name').val().trim() || 'Medkit';
+    post('/api/character/' + id + '/craft',
+      { item_name: name },
+      function (d) { showResult('#out-craft-item', d); },
+      function (x) { showErr('#out-craft-item', x); }
+    );
+  }
+
+  function testEquipItem() {
+    var id   = charID(); if (!id) return;
+    var slot = $('#equip-slot').val();
+    var item = $('#equip-item-name').val().trim() || 'Reinforced Bat';
+    post('/api/character/' + id + '/equip',
+      { slot: slot, item: item },
+      function (d) { showResult('#out-equip-item', d); },
+      function (x) { showErr('#out-equip-item', x); }
+    );
+  }
+
+  function testDropItem() {
+    var id   = charID(); if (!id) return;
+    var name = $('#drop-item-name').val().trim() || 'Bandage';
+    post('/api/character/' + id + '/item/drop',
+      { item_name: name },
+      function (d) { showResult('#out-drop-item', d); },
+      function (x) { showErr('#out-drop-item', x); }
+    );
+  }
+
+  function testLevelUp() {
+    var id = charID(); if (!id) return;
+    post('/api/character/' + id + '/levelup',
+      {},
+      function (d) { showResult('#out-levelup', d); },
+      function (x) { showErr('#out-levelup', x); }
+    );
+  }
+
   function loadMetrics() {
     $.get('/metrics')
       .done(function (text) { $('#raw-metrics').text(text.slice(0, 4000)); })
@@ -167,6 +234,16 @@
     $.ajax({
       url:         url,
       method:      'POST',
+      contentType: 'application/json',
+      data:        JSON.stringify(data),
+      dataType:    'json',
+    }).done(onDone).fail(onFail);
+  }
+
+  function put(url, data, onDone, onFail) {
+    $.ajax({
+      url:         url,
+      method:      'PUT',
       contentType: 'application/json',
       data:        JSON.stringify(data),
       dataType:    'json',

@@ -17,7 +17,7 @@
       <div id="session-info">
         <span id="char-name-display"></span>
         <span id="char-class-display"></span>
-        <span id="hp-display"></span>
+        <span id="hp-display" title="Click to open character sheet" style="cursor:pointer"></span>
       </div>
     </header>
 
@@ -40,10 +40,25 @@
       <!-- Stats bar -->
       <div id="stats-bar" class="stats-bar"></div>
 
-      <!-- Map -->
+      <!-- Party Bar -->
+      <div id="party-bar" class="party-bar hidden">
+        <div id="party-slots" class="party-slots"></div>
+        <button id="add-party-btn" class="btn-sm">+ Add Survivor</button>
+      </div>
+
+      <!-- Map + Tile Draw -->
       <div id="map-section">
-        <h2>Map <button id="generate-map-btn" class="btn-sm">New Map</button></h2>
-        <p class="map-hint">Click a tile to explore its buildings.</p>
+        <h2>Map
+          <button id="generate-map-btn" class="btn-sm hidden">New Map</button>
+          <button id="draw-tile-btn" class="btn-sm">Draw Tiles</button>
+        </h2>
+        <p class="map-hint">Draw tiles to explore — pick one to place on the map.</p>
+
+        <!-- Tile hand — 2 cards to choose from -->
+        <div id="tile-hand" class="tile-hand hidden">
+          <div id="tile-hand-cards" class="tile-hand-cards"></div>
+        </div>
+
         <div id="map-grid" class="map-grid"></div>
       </div>
 
@@ -74,6 +89,12 @@
           <span id="bldg-group-desc" class="group-desc"></span>
         </div>
         <div id="bldg-leader-dialogue" class="leader-dialogue ai-text"></div>
+
+        <!-- Initiative tracker (shown during combat) -->
+        <div id="initiative-tracker" class="initiative-tracker hidden">
+          <h4>⚡ Initiative Order</h4>
+          <div id="initiative-list" class="initiative-list"></div>
+        </div>
 
         <!-- Monster cards list -->
         <div id="monster-group-list" class="monster-group-list"></div>
@@ -114,14 +135,56 @@
       <!-- Inventory -->
       <div id="inventory-panel">
         <h3>Inventory <span id="inv-count"></span></h3>
-        <div id="inventory-list"></div>
+        <div id="inventory-grid" class="inv-grid"></div>
         <div id="craft-section">
-          <button id="craft-btn" class="btn-sm">Check What I Can Craft</button>
+          <button id="craft-check-btn" class="btn-sm">Check What I Can Craft</button>
           <div id="craft-results" class="hidden"></div>
         </div>
       </div>
 
     </section>
+
+    <!-- ── Character Sheet Modal ───────────────────────────────────────────── -->
+    <div id="char-sheet-modal" class="char-sheet-modal hidden">
+      <div class="char-sheet-inner">
+        <div class="char-sheet-header">
+          <h2 id="csh-title"></h2>
+          <button id="char-sheet-close" class="btn-sm">✕ Close</button>
+        </div>
+
+        <!-- Identity: level, XP bar -->
+        <div class="csh-section">
+          <div id="csh-identity" class="csh-identity"></div>
+          <div class="xp-bar-container"><div id="csh-xp-bar" class="xp-fill"></div></div>
+          <div class="xp-text" id="csh-xp-text"></div>
+        </div>
+
+        <!-- Stats grid -->
+        <div class="csh-section">
+          <h3>Stats</h3>
+          <div id="csh-stats" class="csh-stats-grid"></div>
+        </div>
+
+        <!-- Equipment slots -->
+        <div class="csh-section">
+          <h3>Equipment</h3>
+          <div id="csh-equipment" class="csh-equip-slots"></div>
+        </div>
+
+        <!-- Inventory grid (4×5) -->
+        <div class="csh-section">
+          <h3>Inventory <span id="csh-inv-count"></span></h3>
+          <div id="csh-inventory-grid" class="inv-grid"></div>
+          <div id="csh-craft-results" class="hidden" style="margin-top:10px"></div>
+        </div>
+
+        <!-- Craft area in modal -->
+        <div class="csh-section">
+          <h3>Crafting</h3>
+          <div id="csh-craftable-list" class="craftable-list"></div>
+        </div>
+      </div>
+    </div>
 
     <!-- ── Loading / Error states ─────────────────────────────────────────── -->
     <div id="loading" class="loading hidden">

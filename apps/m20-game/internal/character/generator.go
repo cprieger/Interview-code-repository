@@ -73,6 +73,7 @@ func Generate(req GenerateRequest) (*Character, error) {
 		MaxHP:     maxHP,
 		Stats:     stats,
 		Inventory: []string{},
+		Equipment: Equipment{},
 		Location:  "tile-01",
 		CreatedAt: now,
 		UpdatedAt: now,

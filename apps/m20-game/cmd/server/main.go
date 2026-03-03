@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -168,9 +169,11 @@ func handleScavenge(w http.ResponseWriter, r *http.Request) {
 
 func handleItems(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"supplies":  resources.Supplies(),
-		"craftable": resources.CraftableItems(),
-		"classes":   resources.Classes(),
+		"supplies":       resources.Supplies(),
+		"craftable":      resources.CraftableItems(),
+		"classes":        resources.Classes(),
+		"equip_bonuses":  resources.EquipBonuses,
+		"special_groups": resources.SpecialGroups,
 	})
 }
 
@@ -319,8 +322,17 @@ func handleCreateCharacter(w http.ResponseWriter, r *http.Request, store *charac
 	writeJSON(w, http.StatusCreated, c)
 }
 
+// handleCharacterByID routes all /api/character/:id sub-resources.
+//
+// Routes:
+//   GET  /api/character/:id            — load character
+//   PUT  /api/character/:id            — partial update
+//   GET  /api/character/:id/sheet      — full sheet with class def
+//   POST /api/character/:id/craft      — craft item (consume materials)
+//   POST /api/character/:id/equip      — equip item into slot
+//   POST /api/character/:id/item/drop  — drop item from inventory
+//   POST /api/character/:id/levelup    — server-side LevelUp()
 func handleCharacterByID(w http.ResponseWriter, r *http.Request, path string, store *character.Store) {
-	// /api/character/:id  or  /api/character/:id/sheet
 	trimmed := strings.TrimPrefix(path, "/api/character/")
 	parts := strings.SplitN(trimmed, "/", 2)
 	id := parts[0]
@@ -329,6 +341,12 @@ func handleCharacterByID(w http.ResponseWriter, r *http.Request, path string, st
 		writeError(w, http.StatusBadRequest, "MISSING_ID", "character ID required", "use /api/character/:id")
 		return
 	}
+
+	sub := ""
+	if len(parts) == 2 {
+		sub = parts[1]
+	}
+	method := r.Method
 
 	c, err := store.Load(r.Context(), id)
 	if err != nil {
@@ -341,19 +359,223 @@ func handleCharacterByID(w http.ResponseWriter, r *http.Request, path string, st
 		return
 	}
 
-	// /api/character/:id/sheet — full sheet with class details
-	if len(parts) == 2 && parts[1] == "sheet" {
+	switch {
+	case sub == "" && method == http.MethodGet:
+		writeJSON(w, http.StatusOK, c)
+
+	case sub == "" && method == http.MethodPut:
+		handleUpdateCharacter(w, r, c, store)
+
+	case sub == "sheet" && method == http.MethodGet:
 		classDef := resources.ClassByName(c.Class)
 		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"character":  c,
-			"class_def":  classDef,
-			"xp_to_next": character.XPForNextLevel(c.Level),
+			"character":         c,
+			"class_def":         classDef,
+			"xp_to_next":        character.XPForNextLevel(c.Level),
 			"ready_to_level_up": c.IsReadyToLevelUp(),
-			"max_inventory": c.MaxInventorySlots(),
+			"max_inventory":     c.MaxInventorySlots(),
 		})
+
+	case sub == "craft" && method == http.MethodPost:
+		handleCraftItem(w, r, c, store)
+
+	case sub == "equip" && method == http.MethodPost:
+		handleEquipItem(w, r, c, store)
+
+	case sub == "item/drop" && method == http.MethodPost:
+		handleDropItem(w, r, c, store)
+
+	case sub == "levelup" && method == http.MethodPost:
+		handleLevelUp(w, r, c, store)
+
+	default:
+		writeError(w, http.StatusNotFound, "NOT_FOUND", "route not found", "check path and method")
+	}
+}
+
+// handleUpdateCharacter applies a partial update to a character.
+// PUT /api/character/:id
+func handleUpdateCharacter(w http.ResponseWriter, r *http.Request, c *character.Character, store *character.Store) {
+	var req struct {
+		HP        *int                 `json:"hp,omitempty"`
+		XP        *int                 `json:"xp,omitempty"`
+		Level     *int                 `json:"level,omitempty"`
+		Inventory []string             `json:"inventory,omitempty"`
+		Equipment *character.Equipment `json:"equipment,omitempty"`
+		Location  string               `json:"location,omitempty"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_BODY", "invalid JSON body", "send partial character fields")
 		return
 	}
+	if req.HP != nil {
+		c.HP = *req.HP
+		if c.HP < 0 {
+			c.HP = 0
+		}
+		if c.HP > c.MaxHP {
+			c.HP = c.MaxHP
+		}
+	}
+	if req.XP != nil {
+		c.XP = *req.XP
+	}
+	if req.Level != nil {
+		c.Level = *req.Level
+	}
+	if req.Inventory != nil {
+		c.Inventory = req.Inventory
+	}
+	if req.Equipment != nil {
+		c.Equipment = *req.Equipment
+	}
+	if req.Location != "" {
+		c.Location = req.Location
+	}
+	if err := store.Save(r.Context(), c); err != nil {
+		slog.Error("update character failed", "id", c.ID, "error", err)
+		writeError(w, http.StatusInternalServerError, "STORE_ERROR", "failed to save character", "check server logs")
+		return
+	}
+	writeJSON(w, http.StatusOK, c)
+}
 
+// handleCraftItem crafts an item: verifies materials, consumes them, adds result.
+// POST /api/character/:id/craft  {"item_name": "Medkit"}
+func handleCraftItem(w http.ResponseWriter, r *http.Request, c *character.Character, store *character.Store) {
+	var req struct {
+		ItemName string `json:"item_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ItemName == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_BODY", "item_name required", `send {"item_name": "..."}`)
+		return
+	}
+	item := resources.CraftableItemByName(req.ItemName)
+	if item == nil {
+		writeError(w, http.StatusBadRequest, "UNKNOWN_ITEM", "item is not craftable", "check /api/items for the craftable list")
+		return
+	}
+	if c.Stats.Crafting < item.CraftingLevel {
+		writeError(w, http.StatusBadRequest, "SKILL_TOO_LOW", "crafting stat too low",
+			fmt.Sprintf("need crafting %d, have %d", item.CraftingLevel, c.Stats.Crafting))
+		return
+	}
+	if len(c.Inventory) >= c.MaxInventorySlots() {
+		writeError(w, http.StatusBadRequest, "INVENTORY_FULL", "inventory is full", "drop an item first")
+		return
+	}
+	// Verify materials (supports duplicate material requirements).
+	needed := make(map[string]int)
+	for _, mat := range item.Materials {
+		needed[mat]++
+	}
+	have := make(map[string]int)
+	for _, inv := range c.Inventory {
+		have[inv]++
+	}
+	for mat, count := range needed {
+		if have[mat] < count {
+			writeError(w, http.StatusBadRequest, "MISSING_MATERIALS",
+				fmt.Sprintf("missing %d x %s", count-have[mat], mat),
+				"check your inventory for required materials")
+			return
+		}
+	}
+	for _, mat := range item.Materials {
+		c.RemoveFirstItem(mat)
+	}
+	c.Inventory = append(c.Inventory, item.Name)
+	if err := store.Save(r.Context(), c); err != nil {
+		slog.Error("craft save failed", "id", c.ID, "error", err)
+		writeError(w, http.StatusInternalServerError, "STORE_ERROR", "failed to save after craft", "check server logs")
+		return
+	}
+	writeJSON(w, http.StatusOK, c)
+}
+
+// handleEquipItem sets a character's equipment slot.
+// POST /api/character/:id/equip  {"slot": "weapon", "item": "Reinforced Bat"}
+// Send item:"" to unequip.
+func handleEquipItem(w http.ResponseWriter, r *http.Request, c *character.Character, store *character.Store) {
+	var req struct {
+		Slot string `json:"slot"` // weapon | armor | accessory
+		Item string `json:"item"` // item name or "" to unequip
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "INVALID_BODY", "invalid body", `send {"slot":"weapon|armor|accessory","item":"..."}`)
+		return
+	}
+	validSlots := map[string]bool{"weapon": true, "armor": true, "accessory": true}
+	if !validSlots[req.Slot] {
+		writeError(w, http.StatusBadRequest, "INVALID_SLOT", "slot must be weapon, armor, or accessory", "")
+		return
+	}
+	if req.Item != "" && !c.ContainsItem(req.Item) {
+		writeError(w, http.StatusBadRequest, "NOT_IN_INVENTORY", "item not in inventory", "you can only equip items you're carrying")
+		return
+	}
+	switch req.Slot {
+	case "weapon":
+		c.Equipment.Weapon = req.Item
+	case "armor":
+		c.Equipment.Armor = req.Item
+	case "accessory":
+		c.Equipment.Accessory = req.Item
+	}
+	if err := store.Save(r.Context(), c); err != nil {
+		slog.Error("equip save failed", "id", c.ID, "error", err)
+		writeError(w, http.StatusInternalServerError, "STORE_ERROR", "failed to save after equip", "check server logs")
+		return
+	}
+	writeJSON(w, http.StatusOK, c)
+}
+
+// handleDropItem removes an item from inventory and auto-unequips it.
+// POST /api/character/:id/item/drop  {"item_name": "Bandage"}
+func handleDropItem(w http.ResponseWriter, r *http.Request, c *character.Character, store *character.Store) {
+	var req struct {
+		ItemName string `json:"item_name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ItemName == "" {
+		writeError(w, http.StatusBadRequest, "INVALID_BODY", "item_name required", `send {"item_name": "..."}`)
+		return
+	}
+	if !c.RemoveFirstItem(req.ItemName) {
+		writeError(w, http.StatusBadRequest, "NOT_IN_INVENTORY", "item not in inventory", "nothing to drop")
+		return
+	}
+	// Auto-unequip from any slot.
+	if c.Equipment.Weapon == req.ItemName {
+		c.Equipment.Weapon = ""
+	}
+	if c.Equipment.Armor == req.ItemName {
+		c.Equipment.Armor = ""
+	}
+	if c.Equipment.Accessory == req.ItemName {
+		c.Equipment.Accessory = ""
+	}
+	if err := store.Save(r.Context(), c); err != nil {
+		slog.Error("drop save failed", "id", c.ID, "error", err)
+		writeError(w, http.StatusInternalServerError, "STORE_ERROR", "failed to save after drop", "check server logs")
+		return
+	}
+	writeJSON(w, http.StatusOK, c)
+}
+
+// handleLevelUp calls LevelUp() server-side and persists the result.
+// POST /api/character/:id/levelup
+func handleLevelUp(w http.ResponseWriter, r *http.Request, c *character.Character, store *character.Store) {
+	if !c.IsReadyToLevelUp() {
+		writeError(w, http.StatusBadRequest, "NOT_READY", "not enough XP to level up",
+			fmt.Sprintf("need %d XP, currently have %d", character.XPForNextLevel(c.Level), c.XP))
+		return
+	}
+	c.LevelUp()
+	if err := store.Save(r.Context(), c); err != nil {
+		slog.Error("levelup save failed", "id", c.ID, "error", err)
+		writeError(w, http.StatusInternalServerError, "STORE_ERROR", "failed to save after level up", "check server logs")
+		return
+	}
 	writeJSON(w, http.StatusOK, c)
 }
 
