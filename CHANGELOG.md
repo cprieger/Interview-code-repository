@@ -1,3 +1,12 @@
+## 2026-07-08 (3)
+
+- Added `.claude/agents/mobius.md` — Garmin Connect IQ / Monkey C watch face specialist agent: legibility checklist (sunlight/glance/Always-On/data-loss/round-display tests), the established `apps/apache-watchface` design spec, the local Connect IQ toolchain paths, a running list of Monkey C compile/runtime gotchas hit during this project, and a battery-optimization checklist.
+- Restyled `apps/apache-watchface` to a phosphor-green LCD/HUD look (client-approved concept), then used Mobius to fix legibility issues found via real compile+run+screenshot verification:
+  - `source/ColorScheme.mc` — new phosphor-green palette (day: green text/icons + amber solar accent + red heart accent; Always-On: single dim green, fully monochrome), `panelColor()`.
+  - `source/HudDraw.mc` — added `drawPanel` (octagon-cut panel outline), `drawDashedLine` (segmented row divider), `lerpColor`; a decorative chapter-ring/gauge-arc addition was built, found to render as a broken spiral, and removed entirely per client feedback ("solar intensity is not important and not really necessary" — distinct from the "next solar event" field, which stays); fixed a real runtime bug where the weather icon wasn't rendering at all (coordinates/sizing, not a compile error — caught only by screenshotting the running simulator).
+  - `source/ApacheWatchFaceView.mc` — field layout rewritten to center the whole content stack vertically as a block (top margin == bottom margin by construction) with each row's safe width computed via `safeHalfWidth()` against real circle-radius math instead of eyeballed fractions; time forced to always-24-hour per client request (removed the device 12/24h setting dependency and AM/PM label); row sizing now follows an explicit client-stated priority order (clock+seconds biggest, then weather/temp, solar event, heart rate, steps, battery%).
+  - Verified end-to-end multiple times via `monkeyc` (compile) → `monkeydo` (run, checked for `Error:` crash blocks) → a native Win32 `PrintWindow` screenshot of the simulator window, Read back to visually confirm — not just a clean compile, since this project already hit a bug (font loading) that compiled fine and crashed at runtime, and another (weather icon) that ran fine and silently didn't render.
+
 ## 2026-07-08 (2)
 
 - Set up a working Connect IQ dev environment and fixed `apps/apache-watchface/` to actually compile and run:

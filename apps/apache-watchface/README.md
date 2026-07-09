@@ -1,8 +1,10 @@
 # AH-64E Apache Watch Face
 
-A Garmin Connect IQ watch face for the **fenix 7X Pro Sapphire Solar**, styled like an
-AH-64E Apache cockpit MFD/HUD: big digital clock in the center, HUD corner brackets,
-and gauge-style readouts around the edge.
+A Garmin Connect IQ watch face for the **fenix 7X Pro Sapphire Solar**, styled as a
+phosphor-green LCD/HUD readout: a big always-24-hour digital clock centered in the
+display, with octagon-cut ("clipped corner") panels for each stat group, dashed
+segment-style dividers under each stat row, and monospace/digital numerals — the
+look of an old amber/green cockpit MFD rendered on a modern round MIP display.
 
 Everything is drawn programmatically (no bitmap art besides the launcher icon) —
 flat fills, no gradients, legible on the watch's MIP display.
@@ -40,17 +42,25 @@ Or just open the folder in VS Code and use `Monkey C: Build for Device` /
 
 | Position | Field |
 |---|---|
-| Center (largest) | Hours : Minutes, with smaller Seconds beside it (seconds hidden in Always-On mode) |
-| Top left | Battery % with a fill-proportional battery icon |
+| Center (largest, most generous sizing) | Hours : Minutes in **24-hour format, always** (not tied to the device's 12/24h setting), with smaller Seconds beside it (seconds hidden in Always-On mode) |
+| Top left | Battery %, segmented (4-bar) fill icon |
 | Top right | Heart rate, red heart icon |
 | Bottom left | Step count, footprint icon |
-| Bottom right | Next solar event (sunrise before sunrise, sunset after), yellow sun icon |
+| Bottom right | Next solar event (sunrise before sunrise, sunset after), amber sun-on-horizon icon with rise/set arrow |
 | Bottom center | Date, e.g. `WED 08/07` (format configurable in Garmin Connect app settings) |
 | Very bottom | Temperature + weather icon (sunny/cloudy/rain/snow/storm) |
 
-Day mode: white text, cyan HUD accents, yellow solar icon, red heart icon.
-Always-On mode: monochrome, seconds hidden, weather icon simplified to sunny/cloudy,
-heart rate and weather refresh less often.
+Row sizing follows an explicit priority order (client-specified): clock+seconds is
+biggest and most legible, then temp/weather, then next solar event, then heart rate,
+then step count, then battery % — the PWR/HR row sits furthest from screen center
+(tightest against the round bezel) and is sized/laid out accordingly.
+
+Day mode: phosphor green (`0x8CFF6E`) text/icons on black, amber accent for the solar
+icon, red accent for the heart icon. Always-On mode: single dim green (fully
+monochrome, no accent hues), seconds hidden, weather icon simplified to sunny/cloudy,
+heart rate and weather refresh less often. There is no decorative outer ring/gauge —
+an earlier concept pass had one and it was removed; nothing but the 7 spec fields and
+their panel framing is drawn.
 
 ## 1. Set up your local environment (on another machine)
 
@@ -126,11 +136,12 @@ on a different Garmin model. If he has a different watch, add his device id to
 
 One thing worth knowing before you submit: **"AH-64E Apache" is real Boeing
 branding/trademark.** This watch face doesn't use any Boeing artwork, name, or
-insignia in the code or icon — it's just a HUD-style *aesthetic* (crosshair
-reticle, corner brackets, angular readouts). Keep the store listing's name and
-description generic ("military HUD watch face" rather than "AH-64E Apache
-watch face") to stay clear of any trademark issue, especially since this is a
-public store submission and not just a personal sideload.
+insignia in the code or icon — it's just a cockpit-instrument *aesthetic*
+(phosphor-green digital numerals, octagon-cut panel framing, dashed dividers).
+Keep the store listing's name and description generic ("phosphor HUD watch
+face" rather than "AH-64E Apache watch face") to stay clear of any trademark
+issue, especially since this is a public store submission and not just a
+personal sideload.
 
 ## Files
 
@@ -185,10 +196,16 @@ the simulator. Six real issues turned up, now all fixed:
   fonts included. If you ever see this exact error on a fresh device install, this
   is almost certainly why.
 
-Field layout (`w * 0.22` etc. fractions in `ApacheWatchFaceView.mc`) was tuned by
-eye for a round display and hasn't been visually inspected (no way to screenshot the
-native simulator window from this environment) — nudge the fractions if anything
-clips near the bezel when you look at it yourself.
+Field layout in `ApacheWatchFaceView.mc` is computed against real round-display
+geometry, not eyeballed fractions: the whole content stack (PWR/HR, clock, STP/SOLAR,
+date, WX) is centered vertically as a block, and each row's usable half-width is
+`safeHalfWidth()` — `sqrt(contentR² - dy²)` for that row's vertical distance `dy` from
+center — rather than a flat fraction of screen width. This has been visually verified
+by compiling, running in `monkeydo`, and screenshotting the actual simulator window
+(native Win32 `PrintWindow` capture, not a browser tool) — not just assumed from a
+clean compile. If you retune the row-height fractions, re-verify the same way: a
+`BUILD SUCCESSFUL` says nothing about whether an icon is actually visible or two
+fields are overlapping at the real on-device size.
 
 The `Weather.CONDITION_*` subset used in `HudDraw.mapConditionToBucket()` is
 deliberately conservative (constants present since Weather's original 3.1.0
@@ -199,7 +216,8 @@ if you want finer icon distinctions later.
 ## Customizing
 
 - Colors: `source/ColorScheme.mc`.
-- Field positions/sizes: the `w * 0.NN` / `h * 0.NN` fractions in each
-  `draw*Field` method in `source/ApacheWatchFaceView.mc`.
+- Field positions/sizes: the row-height fractions of `r` (display radius) at
+  the top of `onUpdate()`, and the per-row `draw*Row` methods, in
+  `source/ApacheWatchFaceView.mc`.
 - Icon shapes: `source/HudDraw.mc`.
 - Refresh intervals: the constants at the top of `source/DataCache.mc`.
