@@ -2,8 +2,8 @@
 <settings>
     <setting propertyKey="@Properties.dateFormatDDMM" title="@Strings.SettingDateFormatTitle">
         <settingConfig type="list">
-            <listEntry value="true">@Strings.SettingDateFormatDDMM</listEntry>
-            <listEntry value="false">@Strings.SettingDateFormatMMDD</listEntry>
+            <listEntry value="1">@Strings.SettingDateFormatDDMM</listEntry>
+            <listEntry value="0">@Strings.SettingDateFormatMMDD</listEntry>
         </settingConfig>
     </setting>
 </settings>

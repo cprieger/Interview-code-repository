@@ -7,11 +7,34 @@ and gauge-style readouts around the edge.
 Everything is drawn programmatically (no bitmap art besides the launcher icon) —
 flat fills, no gradients, legible on the watch's MIP display.
 
-**Heads up:** this was written without access to the Connect IQ SDK/simulator, so it
-has not actually been compiled. The Monkey C is written carefully against the
-official API docs, but you should expect a couple of small compiler-error fixes on
-first build (see "Known risk areas" below) — normal for a first pass on a new SDK
-project.
+**Status: builds and runs clean.** This has been compiled with the real Connect IQ
+SDK (monkeyc) and run in the simulator (monkeydo) for both `fenix7xpro` and
+`fenix7xpronowifi` with no crashes. Local environment is already set up on this
+machine — see below.
+
+## Local environment (already set up here)
+
+| Component | Location |
+|---|---|
+| Connect IQ SDK 9.2.0 | `%APPDATA%\Garmin\ConnectIQ\Sdks\connectiq-sdk-win-9.2.0-2026-06-09-92a1605b2\` |
+| Device files (fenix7xpro + fenix7xpronowifi, incl. simulator fonts) | `%APPDATA%\Garmin\ConnectIQ\Devices\` |
+| Developer signing key | `~/.garmin/developer_key.der` (outside the repo — never commit it) |
+| Microsoft OpenJDK 17 (required by monkeyc) | `C:\Program Files\Microsoft\jdk-17.0.19.10-hotspot\` |
+| VS Code Monkey C extension (`garmin.monkey-c`) | installed |
+| [connect-iq-sdk-manager](https://github.com/lindell/connect-iq-sdk-manager-cli) CLI, used to fetch the SDK/devices/fonts headlessly | `C:\Users\Chris\bin\connect-iq-sdk-manager.exe` |
+
+To build from a fresh terminal (PATH isn't persisted automatically):
+
+```bash
+export PATH="/c/Program Files/Microsoft/jdk-17.0.19.10-hotspot/bin:$PATH"
+SDK_BIN="/c/Users/Chris/AppData/Roaming/Garmin/ConnectIQ/Sdks/connectiq-sdk-win-9.2.0-2026-06-09-92a1605b2/bin"
+cd apps/apache-watchface
+"$SDK_BIN/monkeyc.bat" -o bin/apache-watchface.prg -f monkey.jungle \
+  -y "/c/Users/Chris/.garmin/developer_key.der" -d fenix7xpro -w
+```
+
+Or just open the folder in VS Code and use `Monkey C: Build for Device` /
+`Monkey C: Run` — the extension already knows about the installed SDK.
 
 ## What's on screen
 
@@ -29,48 +52,34 @@ Day mode: white text, cyan HUD accents, yellow solar icon, red heart icon.
 Always-On mode: monochrome, seconds hidden, weather icon simplified to sunny/cloudy,
 heart rate and weather refresh less often.
 
-## 1. Set up your local environment
+## 1. Set up your local environment (on another machine)
 
-You need three things: the **Connect IQ SDK**, an **editor with the Monkey C
-extension**, and a **developer key** (required to sign anything you build, even for
-local sideloading).
+Already done on this machine (see above). On a different machine — e.g. if your
+brother wants to build it himself rather than just receiving a `.prg` — here's what's
+needed:
 
-1. **Install the SDK Manager**
-   Download it from the [Connect IQ SDK page](https://developer.garmin.com/connect-iq/sdk/)
-   (Windows installer). Run it once — it installs the SDK Manager app.
-
-2. **Install an SDK + the fenix 7X Pro device files**
-   Open SDK Manager → install the latest Connect IQ SDK → in the "Devices" tab,
-   make sure **fenix 7X Pro** is checked/installed. This is also where you can
-   search the device list to confirm the exact internal device id (see step 4).
-
-3. **Install VS Code + the Monkey C extension**
-   Garmin's current official toolchain is the **Monkey C extension for VS Code**
-   (the old Eclipse-based IDE is deprecated). Install
-   [VS Code](https://code.visualstudio.com/), then install the "Monkey C" extension
-   from the marketplace (publisher: Garmin).
-
-4. **Point the extension at your SDK**
-   Command palette → `Monkey C: Configure Current Project` (or it'll prompt you on
-   first open) → select the SDK you installed in step 2.
-
-5. **Generate a developer key** (one-time, reused for every project)
-   Command palette → `Monkey C: Generate Developer Key`. Save it somewhere outside
-   this repo (e.g. `~/.garmin/developer_key.der`) — **do not commit it**. Point the
-   extension at it in its settings (`monkeyC.developerKeyPath`).
-
-6. **Open this folder in VS Code**
-   `apps/apache-watchface/` — the extension auto-detects `manifest.xml` and
-   `monkey.jungle`.
-
-7. **Verify the device id in `manifest.xml`**
-   Garmin's device-id strings for the fenix 7 Pro line are inconsistent across
-   SDK releases (the original 2023 "Sapphire Solar" Pro shipped as a solar-only,
-   no-WiFi SKU). `manifest.xml` currently lists both `fenix7xpro` and
-   `fenix7xpronowifi` as candidates. Run `Monkey C: Edit Project` and use its
-   device picker to see which id(s) your installed SDK actually has for
-   "fenix 7X Pro" / "fenix 7X Pro Sapphire Solar", and delete whichever entry
-   doesn't exist (an id the SDK doesn't recognize will fail the build).
+1. **Install the SDK Manager GUI**, from the
+   [Connect IQ SDK page](https://developer.garmin.com/connect-iq/sdk/), *or* the
+   [connect-iq-sdk-manager CLI](https://github.com/lindell/connect-iq-sdk-manager-cli)
+   (what was used here — scriptable, but it's a third-party tool, not Garmin's own).
+   Either way it's gated behind a free Garmin account login + accepting Garmin's SDK
+   license.
+2. **Install a JDK** (Java 17+) — the compiler (`monkeyc`) is a JVM tool and won't run
+   without one. [Microsoft's OpenJDK 17](https://learn.microsoft.com/en-us/java/openjdk/download)
+   is a safe, official pick.
+3. **Install the SDK + device files, including fonts.** If using the CLI:
+   `connect-iq-sdk-manager device download --manifest=manifest.xml --include-fonts`
+   — the `--include-fonts` flag is easy to miss and its absence causes a
+   confusing runtime crash (`Invalid Font Specified`) that has nothing to do with
+   which font you picked in code; see "Bugs found" below.
+4. **Install VS Code + the Monkey C extension** (`garmin.monkey-c`) — Garmin's
+   current official toolchain (the old Eclipse IDE is deprecated).
+5. **Generate a developer key** (one-time): `openssl genrsa -out developer_key.pem 4096`
+   then `openssl pkcs8 -topk8 -inform PEM -outform DER -in developer_key.pem -out developer_key.der -nocrypt`.
+   Keep it outside any repo — **never commit it**.
+6. **Device id**: both `fenix7xpro` and `fenix7xpronowifi` in `manifest.xml` are
+   confirmed valid — both downloaded and compiled successfully, so no manifest edit
+   is needed regardless of which exact fenix 7X Pro variant you have.
 
 ## 2. Build & run in the simulator
 
@@ -83,7 +92,7 @@ local sideloading).
 - Toggle Always-On mode from the simulator's watch-face menu to check the
   monochrome/seconds-hidden styling.
 
-## 3. Sideload to your watch
+## 3. Sideload to your watch (or send the `.prg` to someone else)
 
 1. Command palette → `Monkey C: Build for Device` → produces a `.prg` in `bin/`.
 2. Connect the watch by USB — it mounts as a mass-storage drive.
@@ -93,6 +102,16 @@ local sideloading).
 
 (Garmin Express can also push it, but the drag-and-drop above is simpler for
 iterating during development.)
+
+**A compiled `.prg` is just a file — you can email it, and no device needs to be
+plugged into this machine for that.** Building only needs the SDK; installing only
+needs *the target watch* plugged into *whichever* computer is doing the install. So:
+compile once here, send the `.prg` to your brother, and he plugs his own watch into
+his own computer and drags it into `GARMIN/APPS/` — same 4 steps above, just on his
+end. The one requirement: his watch has to be the same device id this was built for
+(`fenix7xpro` / `fenix7xpronowifi`) — a `.prg` is device-specific, it won't install
+on a different Garmin model. If he has a different watch, add his device id to
+`manifest.xml` and rebuild.
 
 ## 4. Publish to the Connect IQ Store
 
@@ -141,25 +160,41 @@ public store submission and not just a personal sideload.
 - Battery % and step count are cheap local stat reads (no I/O), so those are
   just re-read on every draw rather than cached.
 
-## Known risk areas (things to double check on first build)
+## Bugs found and fixed during the real compile/run pass
 
-I don't have the Connect IQ SDK installed in this environment, so none of this
-was actually compiled or run in the simulator. The API calls are written
-against Garmin's published docs, but flag these if the build errors out:
+This was first written without the SDK available, then actually compiled and run in
+the simulator. Six real issues turned up, now all fixed:
 
-- **Device id** (`manifest.xml`) — see step 7 above, genuinely ambiguous from
-  docs alone.
-- **`minApiLevel="3.4.0"`** in `manifest.xml` — a reasonable guess for the
-  Weather module APIs used; the VS Code extension will tell you if it needs
-  to be higher, and can usually bump it for you.
-- **`Weather.CONDITION_*` constants** in `HudDraw.mapConditionToBucket()` — I
-  used a conservative subset that's been in the API since Weather's original
-  3.1.0 release. There are ~50 more granular constants (see the
-  [Weather API docs](https://developer.garmin.com/connect-iq/api-docs/Toybox/Weather.html))
-  if you want finer icon distinctions later.
-- Field layout (`w * 0.22` etc. fractions in `ApacheWatchFaceView.mc`) was
-  tuned by eye for a round display — nudge the fractions if anything clips
-  near the bezel on your actual screen.
+- `private function` inside a `module` (`HudDraw.mc`) — Monkey C's `module` doesn't
+  support access modifiers, only `class` does. Compile error.
+- Missing `import Toybox.Lang;` in `ColorScheme.mc` — `Number`/`Boolean` type
+  annotations don't resolve without it. Compile error.
+- `getInitialView()` return type — the base class expects the tuple-array syntax
+  `[Views] or [Views, InputDelegates]`, not `Array<Views or InputDelegates>`.
+  Compile error.
+- `fillPolygon()` point arrays need the tuple type `Array<[Numeric, Numeric]>`, not
+  a generic `Array<Array<Numeric>>`. Compile error.
+- `settings.xml` used a `list` setting config bound to a `boolean` property (for the
+  DD/MM vs MM/DD picker) — Connect IQ only allows `list` on `number`/`string`
+  properties. Switched `dateFormatDDMM` to a `number` property (1/0).
+- **Runtime crash**, not a compile error: `Invalid Font Specified` on the very first
+  `drawText()` call, regardless of which font constant was used. Root cause: device
+  *fonts* are a separate downloadable component from the device profile and SDK —
+  downloading device support without `--include-fonts` leaves the simulator with
+  font metadata but no actual glyph data. Fixed by re-running device download with
+  fonts included. If you ever see this exact error on a fresh device install, this
+  is almost certainly why.
+
+Field layout (`w * 0.22` etc. fractions in `ApacheWatchFaceView.mc`) was tuned by
+eye for a round display and hasn't been visually inspected (no way to screenshot the
+native simulator window from this environment) — nudge the fractions if anything
+clips near the bezel when you look at it yourself.
+
+The `Weather.CONDITION_*` subset used in `HudDraw.mapConditionToBucket()` is
+deliberately conservative (constants present since Weather's original 3.1.0
+release) — there are ~50 more granular constants in the
+[Weather API docs](https://developer.garmin.com/connect-iq/api-docs/Toybox/Weather.html)
+if you want finer icon distinctions later.
 
 ## Customizing
 

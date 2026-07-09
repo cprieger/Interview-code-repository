@@ -86,7 +86,7 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         var timeStr = Lang.format("$1$:$2$", [hour.format("%02d"), clockTime.min.format("%02d")]);
 
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy, Graphics.FONT_NUMBER_THAI_HOT, timeStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.drawText(cx, cy, Graphics.FONT_NUMBER_HOT, timeStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         if (!is24Hour) {
             dc.drawText(cx, cy + (dc.getHeight() * 0.16).toNumber(), Graphics.FONT_XTINY, amPm, Graphics.TEXT_JUSTIFY_CENTER);
@@ -174,8 +174,8 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
 
         var info = Gregorian.info(Time.now(), Time.FORMAT_SHORT);
         var dayName = DAY_ABBREV[info.day_of_week];
-        var ddMm = Properties.getValue("dateFormatDDMM") as Boolean;
-        var dateNums = (ddMm == true)
+        var ddMm = Properties.getValue("dateFormatDDMM") as Number;
+        var dateNums = (ddMm == 1)
             ? Lang.format("$1$/$2$", [info.day.format("%02d"), info.month.format("%02d")])
             : Lang.format("$1$/$2$", [info.month.format("%02d"), info.day.format("%02d")]);
 

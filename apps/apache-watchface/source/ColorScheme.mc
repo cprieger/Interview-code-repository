@@ -1,4 +1,5 @@
 import Toybox.Graphics;
+import Toybox.Lang;
 
 // Color palette for day mode vs. Always-On (low power / sleeping) mode.
 // MIP displays don't expose a named "cyan" Graphics.COLOR_* constant, so

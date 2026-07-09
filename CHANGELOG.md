@@ -1,3 +1,14 @@
+## 2026-07-08 (2)
+
+- Set up a working Connect IQ dev environment and fixed `apps/apache-watchface/` to actually compile and run:
+  - Installed Connect IQ SDK 9.2.0, fenix7xpro/fenix7xpronowifi device files + simulator fonts, Microsoft OpenJDK 17, and the `garmin.monkey-c` VS Code extension; generated a developer signing key (`~/.garmin/developer_key.der`, outside the repo).
+  - Fixed 5 real compile errors found via `monkeyc`: `private` on a `module` function (not supported, only `class` allows it) in `HudDraw.mc`; missing `import Toybox.Lang;` in `ColorScheme.mc`; `getInitialView()`'s return type needed Monkey C's tuple-array syntax (`[Views] or [Views, InputDelegates]`); `fillPolygon()` point arrays needed `Array<[Numeric, Numeric]>` tuple typing; `settings.xml`'s DD/MM date-format picker used a `list` config on a `boolean` property (only valid on `number`/`string`), so `dateFormatDDMM` became a `number` property.
+  - Fixed a runtime crash (`Invalid Font Specified` on the first `drawText()` call, any font): device *fonts* are a separate download from the device profile — fixed by re-downloading with `--include-fonts`.
+  - Swapped `FONT_NUMBER_THAI_HOT` for `FONT_NUMBER_HOT` for the center clock (Thai locale font pack not needed since the manifest only declares `eng`).
+  - Confirmed both `fenix7xpro` and `fenix7xpronowifi` device ids build and run cleanly in the simulator (`monkeydo`, no crash) — resolves the device-id ambiguity flagged in the first pass.
+  - Regenerated the launcher icon at 40x40 (was 80x80, wrong size for this device, `tools/generate_launcher_icon.py`).
+  - `README.md` — documents the now-verified local setup, the sideload/distribution mechanics (a signed `.prg` can be emailed and installed on any matching-device watch without it ever touching this machine), and the bugs found for future reference.
+
 ## 2026-07-08
 
 - Added new standalone app `apps/apache-watchface/` — Garmin Connect IQ watch face for the fenix 7X Pro Sapphire Solar, styled like an AH-64E cockpit HUD/MFD:

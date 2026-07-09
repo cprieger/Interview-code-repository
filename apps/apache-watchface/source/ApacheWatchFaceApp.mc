@@ -19,8 +19,8 @@ class ApacheWatchFaceApp extends Application.AppBase {
         WatchUi.requestUpdate();
     }
 
-    function getInitialView() as Array<Views or InputDelegates>? {
-        return [new ApacheWatchFaceView()] as Array<Views or InputDelegates>;
+    function getInitialView() as [Views] or [Views, InputDelegates] {
+        return [new ApacheWatchFaceView()] as [Views];
     }
 }
 

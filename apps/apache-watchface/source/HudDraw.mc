@@ -59,7 +59,7 @@ module HudDraw {
             [x, y - s * 0.4],
             [x + s * 0.5, y - s],
             [x + s, y - s * 0.1]
-        ] as Array<Array<Numeric>>);
+        ] as Array<[Numeric, Numeric]>);
     }
 
     // Two overlapping "footprint" blobs.
@@ -85,18 +85,19 @@ module HudDraw {
                 [ax, y - ah],
                 [ax - ah * 0.6, y + ah * 0.4],
                 [ax + ah * 0.6, y + ah * 0.4]
-            ] as Array<Array<Numeric>>);
+            ] as Array<[Numeric, Numeric]>);
         } else {
             dc.fillPolygon([
                 [ax, y + ah],
                 [ax - ah * 0.6, y - ah * 0.4],
                 [ax + ah * 0.6, y - ah * 0.4]
-            ] as Array<Array<Numeric>>);
+            ] as Array<[Numeric, Numeric]>);
         }
     }
 
     // Rounded-rectangle "cloud" used as the base of several weather icons.
-    private function drawCloudBase(dc as Graphics.Dc, x as Number, y as Number, size as Number, color as Number) as Void {
+    // (Not marked private - Monkey C's `module` doesn't support access modifiers on functions, only `class` does.)
+    function drawCloudBase(dc as Graphics.Dc, x as Number, y as Number, size as Number, color as Number) as Void {
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
         var r = size * 0.22;
         dc.fillCircle(x - (size * 0.22).toNumber(), y, r);
@@ -159,7 +160,7 @@ module HudDraw {
                 [bx - size * 0.1, by3 + size * 0.44],
                 [bx + size * 0.16, by3 + size * 0.16],
                 [bx + size * 0.02, by3 + size * 0.16]
-            ] as Array<Array<Numeric>>);
+            ] as Array<[Numeric, Numeric]>);
             return;
         }
 

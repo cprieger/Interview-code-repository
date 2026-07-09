@@ -12,7 +12,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-SIZE = 80
+SIZE = 40
 CYAN = (0, 229, 255, 255)
 BLACK = (0, 0, 0, 0)
 
