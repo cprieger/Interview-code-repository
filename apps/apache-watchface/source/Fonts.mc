@@ -90,6 +90,18 @@ module Fonts {
         return _metrics as Graphics.FontType;
     }
 
+    var _batteryValue as Graphics.FontType?;
+
+    // Client: "reduce the font of the battery number by 1" - scoped to just
+    // the battery box, not the shared metricsFont() (which HR/steps/solar
+    // values also use).
+    function batteryValueFont() as Graphics.FontType {
+        if (_batteryValue == null) {
+            _batteryValue = load(FACE_NUMERIC, 12, Graphics.FONT_SMALL);
+        }
+        return _batteryValue as Graphics.FontType;
+    }
+
     function headerFont() as Graphics.FontType {
         if (_header == null) {
             _header = load(FACE_STENCIL, 12, Graphics.FONT_SMALL);

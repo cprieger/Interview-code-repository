@@ -109,7 +109,10 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
 
     private const STEPS_BOX_X = 36.0;
     private const STEPS_BOX_Y = 166.0;
-    private const STEPS_BOX_W = 88.0;
+    // Client: "go 2 more numbers in, from 123 basically to 150 as the end
+    // x coordinate" - widened so the box's right edge lands at X=150
+    // (was 36+88=124), giving the step-count value more room.
+    private const STEPS_BOX_W = 114.0;
     private const STEPS_BOX_H = 46.0;
 
     private const SOLAR_BOX_X = 156.0;
@@ -349,33 +352,37 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         HudDraw.drawPanel(dc, BATT_BOX_X, BATT_BOX_Y, BATT_BOX_W, BATT_BOX_H, battColor);
 
         var iconCX = BATT_BOX_X + (BATT_BOX_W / 2.0);
-        var iconCY = BATT_BOX_Y + 14.0;
+        var iconCY = BATT_BOX_Y + 13.0; // client: "move the battery up 1 pixel" (was +14)
         var battChrome = _isSleeping ? _iconBatteryChromeAod : _iconBatteryChromeDay;
         HudDraw.drawBitmapCentered(dc, iconCX, iconCY, battChrome, BATTERY_W, BATTERY_H);
         HudDraw.drawBatteryFill(dc, iconCX - (BATTERY_W / 2.0), iconCY - (BATTERY_H / 2.0), BATTERY_W, BATTERY_H, battery, battColor);
 
         var valueCY = BATT_BOX_Y + 34.0;
         dc.setColor(battColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(iconCX, valueCY, Fonts.metricsFont(), battery.format("%d") + "%",
+        // client: "reduce the font of the battery number by 1" - dedicated
+        // batteryValueFont(), scoped to just this field.
+        dc.drawText(iconCX, valueCY, Fonts.batteryValueFont(), battery.format("%d") + "%",
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
+    // Client: "HR" text label removed, heart icon lifted up to roughly
+    // where the label used to sit - the same icon-on-top/value-below
+    // structure the battery box already uses (this also resolves the
+    // visual inconsistency flagged after that pass: both boxes now match).
     private function drawHeartRateBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
         HudDraw.drawPanel(dc, HR_BOX_X, HR_BOX_Y, HR_BOX_W, HR_BOX_H, panelColor);
 
-        dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(HR_BOX_X + 8.0, HR_BOX_Y + 2.0, Fonts.labelsFont(), "HR", Graphics.TEXT_JUSTIFY_LEFT);
-
-        var contentY = HR_BOX_Y + (HR_BOX_H * 0.66);
+        var iconCX = HR_BOX_X + (HR_BOX_W / 2.0);
+        var iconCY = HR_BOX_Y + 14.0;
         var heartIcon = _isSleeping ? _iconHeartAod : _iconHeartDay;
-        var iconCX = HR_BOX_X + 10.0 + (HEART_W / 2.0);
-        HudDraw.drawBitmapCentered(dc, iconCX, contentY, heartIcon, HEART_W, HEART_H);
+        HudDraw.drawBitmapCentered(dc, iconCX, iconCY, heartIcon, HEART_W, HEART_H);
 
         var hr = _cache.heartRate;
         var hrText = (hr != null) ? hr.toString() : "--";
+        var valueCY = HR_BOX_Y + 34.0;
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(HR_BOX_X + HR_BOX_W - 8.0, contentY, Fonts.metricsFont(), hrText,
-            Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.drawText(iconCX, valueCY, Fonts.metricsFont(), hrText,
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     private function drawClockBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
@@ -414,7 +421,9 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         HudDraw.drawPanel(dc, STEPS_BOX_X, STEPS_BOX_Y, STEPS_BOX_W, STEPS_BOX_H, panelColor);
 
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(STEPS_BOX_X + 8.0, STEPS_BOX_Y + 2.0, Fonts.labelsFont(), "STP", Graphics.TEXT_JUSTIFY_LEFT);
+        // client: "move the STP over to be centered as well"
+        dc.drawText(STEPS_BOX_X + (STEPS_BOX_W / 2.0), STEPS_BOX_Y + 2.0, Fonts.labelsFont(), "STP",
+            Graphics.TEXT_JUSTIFY_CENTER);
 
         var contentY = STEPS_BOX_Y + (STEPS_BOX_H * 0.66);
         var bootIcon = _isSleeping ? _iconBootAod : _iconBootDay;

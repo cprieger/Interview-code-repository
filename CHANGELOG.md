@@ -1,3 +1,7 @@
+## 2026-07-09 (3)
+
+- Client polish pass on `apps/apache-watchface`'s V2 layout: battery icon nudged up 1px, its value given a dedicated 1px-smaller font (`Fonts.batteryValueFont()`, scoped to just that field); "HR" text label removed and the heart icon lifted to match the battery box's icon-on-top/value-below structure (resolves the visual inconsistency flagged after the battery change); Steps box widened (right edge 124→150) with its "STP" label re-centered to use the extra room. Boot icon's requested ankle-shaft addition (`tools/generate_hud_icons.py`) is drafted but not yet regenerated/committed — picking up separately.
+
 ## 2026-07-09 (2)
 
 - Implemented client V2 spec for `apps/apache-watchface` — tactical MFD layout:
