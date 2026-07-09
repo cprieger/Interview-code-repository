@@ -1,4 +1,34 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <drawables>
     <bitmap id="LauncherIcon" filename="launcher_icon.png"/>
+
+    <bitmap id="IconBatteryChromeDay" filename="hud/battery_chrome_day.png"/>
+    <bitmap id="IconBatteryChromeAod" filename="hud/battery_chrome_aod.png"/>
+
+    <bitmap id="IconHeartDay" filename="hud/heart_day.png"/>
+    <bitmap id="IconHeartAod" filename="hud/heart_aod.png"/>
+
+    <bitmap id="IconBootDay" filename="hud/boot_day.png"/>
+    <bitmap id="IconBootAod" filename="hud/boot_aod.png"/>
+
+    <bitmap id="IconSolarRiseDay" filename="hud/solar_rise_day.png"/>
+    <bitmap id="IconSolarSetDay" filename="hud/solar_set_day.png"/>
+    <bitmap id="IconSolarRiseAod" filename="hud/solar_rise_aod.png"/>
+    <bitmap id="IconSolarSetAod" filename="hud/solar_set_aod.png"/>
+
+    <bitmap id="IconWxClearDay" filename="hud/wx_clear_day.png"/>
+    <bitmap id="IconWxCloudyDay" filename="hud/wx_cloudy_day.png"/>
+    <bitmap id="IconWxOvercastDay" filename="hud/wx_overcast_day.png"/>
+    <bitmap id="IconWxRainDay" filename="hud/wx_rain_day.png"/>
+    <bitmap id="IconWxSnowDay" filename="hud/wx_snow_day.png"/>
+    <bitmap id="IconWxStormDay" filename="hud/wx_storm_day.png"/>
+    <bitmap id="IconWxClearAod" filename="hud/wx_clear_aod.png"/>
+    <bitmap id="IconWxOvercastAod" filename="hud/wx_overcast_aod.png"/>
+
+    <bitmap id="BannerAh64e" filename="hud/ah64e_banner.png"/>
+
+    <bitmap id="IconBluetoothDay" filename="hud/bluetooth_day.png"/>
+    <bitmap id="IconBluetoothAod" filename="hud/bluetooth_aod.png"/>
+    <bitmap id="IconBellDay" filename="hud/bell_day.png"/>
+    <bitmap id="IconBellAod" filename="hud/bell_aod.png"/>
 </drawables>

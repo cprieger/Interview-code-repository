@@ -1,3 +1,12 @@
+## 2026-07-09
+
+- Verified `apps/apache-watchface`'s bitmap HUD icon integration (already wired up on disk from a prior uncommitted pass) end-to-end via real compile + `monkeydo` run + simulator screenshots, and confirmed Always-On/sleep mode actually works (flagged unverified in a prior pass):
+  - Compiled clean (`BUILD SUCCESSFUL`) and ran via `monkeydo` with no `Error:` crash block; the process stayed alive through both the sleep and wake transitions.
+  - Discovered the correct simulator control for triggering Always-On: **Settings → Display Mode → Always-Active** (native Win32 menu, `id=6248`) — not the separate `Settings → Sleep Mode` checkbox, which had no observable effect on the watch face in testing. Documented this in `apps/apache-watchface/README.md`.
+  - Screenshotted both modes (native `PrintWindow` capture of the simulator window) and confirmed icon-by-icon: day mode renders all bitmap assets correctly with nothing overlapping (chrome battery + vector fill, red heart, boot, amber solar, weather bucket icon, banner, Bluetooth+bell); Always-On correctly hides the banner and seconds, desaturates every icon/text to a single dim monochrome green, still shows the weather/Bluetooth/notification row (dimmed, since it's live status not decoration), and collapses the weather bucket to the 2-state AOD icon set (`clear`/`overcast`) per spec.
+  - Confirmed date field (`THU 09/07`, DD/MM default), always-24-hour clock, and the DD/MM vs MM/DD property were all untouched by the bitmap integration.
+  - Updated `apps/apache-watchface/README.md`'s "What's on screen" and "Files" tables, which had gone stale (still described vector-drawn footprint/icon shapes and didn't mention the banner row, the combined weather/Bluetooth/notification row, or the `resources/drawables/hud/` bitmap asset set / `tools/generate_hud_icons.py` generator).
+
 ## 2026-07-08 (3)
 
 - Added `.claude/agents/mobius.md` — Garmin Connect IQ / Monkey C watch face specialist agent: legibility checklist (sunlight/glance/Always-On/data-loss/round-display tests), the established `apps/apache-watchface` design spec, the local Connect IQ toolchain paths, a running list of Monkey C compile/runtime gotchas hit during this project, and a battery-optimization checklist.
