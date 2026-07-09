@@ -69,7 +69,9 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     private const HEART_W = 28.0;
     private const HEART_H = 28.0;
     private const BOOT_W = 36.0;
-    private const BOOT_H = 24.0;
+    // Grew 24->32: boot icon now includes an ankle shaft on top
+    // (client: "give it like a little top to the boot").
+    private const BOOT_H = 32.0;
     private const SOLAR_W = 28.0;
     private const SOLAR_H = 28.0;
     private const WX_W = 32.0;

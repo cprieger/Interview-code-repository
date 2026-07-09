@@ -83,13 +83,20 @@ def heart(color, size=28, name="heart"):
 
 
 # ------------------------------------------------------------------ boot
-def boot(color, detail_color, w=36, h=24, name="boot"):
+def boot(color, detail_color, w=36, h=32, name="boot"):
     """Side-profile combat/hiking boot silhouette (toe pointing right),
     matching the client-supplied reference: angled ankle collar, laced
-    tongue, rounded toe cap, thick lugged sole. Wider-than-tall canvas -
-    a boot lying on its side isn't square. Replaces the earlier abstract
-    two-footprint version, which the client wanted swapped for this."""
+    tongue, rounded toe cap, thick lugged sole, plus a small ankle shaft
+    on top (client: "give it like a little top to the boot, like a
+    10x10 little box"). Wider-than-tall canvas - a boot lying on its
+    side isn't square. Canvas grew 36x24 -> 36x32 to make room for the
+    shaft; the original boot silhouette is compressed into the bottom
+    75% (scale+offset below) rather than shrunk, so it reads the same
+    size as before with the shaft added above it, not squeezed smaller."""
     img, d, W, H = canvas(w, h)
+
+    def sy(frac):
+        return (0.25 + frac * 0.75) * H
 
     outline = [
         (0.12, 0.32), (0.13, 0.20), (0.20, 0.10), (0.40, 0.06),
@@ -98,23 +105,29 @@ def boot(color, detail_color, w=36, h=24, name="boot"):
         (0.86, 0.76), (0.70, 0.82), (0.40, 0.84), (0.16, 0.83),
         (0.09, 0.76), (0.08, 0.62), (0.10, 0.45),
     ]
-    d.polygon([(x * W, y * H) for x, y in outline], fill=color)
+    d.polygon([(x * W, sy(y)) for x, y in outline], fill=color)
+
+    # ankle shaft - a simple block sitting on top of the collar, slightly
+    # overlapping it for a seamless join
+    d.rectangle([0.12 * W, 0.0, 0.42 * W, sy(0.10)], fill=color)
 
     lw = max(1, int(W * 0.045))
+    # shaft/collar seam
+    d.line([(0.12 * W, sy(0.10)), (0.42 * W, sy(0.10))], fill=detail_color, width=lw)
     # collar opening line
-    d.line([(0.13 * W, 0.20 * H), (0.40 * W, 0.14 * H)], fill=detail_color, width=lw)
+    d.line([(0.13 * W, sy(0.20)), (0.40 * W, sy(0.14))], fill=detail_color, width=lw)
     # lace strokes
     for i in range(3):
-        yy = (0.20 + i * 0.06) * H
-        d.line([(0.44 * W, yy), (0.58 * W, yy + H * 0.03)], fill=detail_color, width=lw)
+        yy = sy(0.20 + i * 0.06)
+        d.line([(0.44 * W, yy), (0.58 * W, yy + H * 0.02)], fill=detail_color, width=lw)
     # vamp seam down to toe
-    d.line([(0.62 * W, 0.29 * H), (0.80 * W, 0.34 * H)], fill=detail_color, width=lw)
+    d.line([(0.62 * W, sy(0.29)), (0.80 * W, sy(0.34))], fill=detail_color, width=lw)
     # sole separation
-    d.line([(0.09 * W, 0.72 * H), (0.90 * W, 0.72 * H)], fill=detail_color, width=lw)
+    d.line([(0.09 * W, sy(0.72)), (0.90 * W, sy(0.72))], fill=detail_color, width=lw)
     # tread notches
     for i in range(5):
         xx = (0.16 + i * 0.15) * W
-        d.line([(xx, 0.78 * H), (xx, 0.83 * H)], fill=detail_color, width=lw)
+        d.line([(xx, sy(0.78)), (xx, sy(0.83))], fill=detail_color, width=lw)
 
     finish(img, w, h, name)
 
