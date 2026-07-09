@@ -109,11 +109,13 @@ def boot(color, detail_color, w=36, h=32, name="boot"):
 
     # ankle shaft - a simple block sitting on top of the collar, slightly
     # overlapping it for a seamless join
-    d.rectangle([0.12 * W, 0.0, 0.42 * W, sy(0.10)], fill=color)
+    # V3: client wants it "a little more chunky" - widened 1px on each
+    # side (0.12/0.42 -> 0.09/0.45, ~1px each at W=36).
+    d.rectangle([0.09 * W, 0.0, 0.45 * W, sy(0.10)], fill=color)
 
     lw = max(1, int(W * 0.045))
     # shaft/collar seam
-    d.line([(0.12 * W, sy(0.10)), (0.42 * W, sy(0.10))], fill=detail_color, width=lw)
+    d.line([(0.09 * W, sy(0.10)), (0.45 * W, sy(0.10))], fill=detail_color, width=lw)
     # collar opening line
     d.line([(0.13 * W, sy(0.20)), (0.40 * W, sy(0.14))], fill=detail_color, width=lw)
     # lace strokes

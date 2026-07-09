@@ -83,6 +83,15 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     private const BELL_W = 24.0;
     private const BELL_H = 24.0;
 
+    // V3: Bluetooth/bell status icons moved from flanking the Weather box to
+    // flanking the Battery/HR row instead (client: "It should be to the left
+    // and right of the battery and heart where there is that little cut
+    // out."). Sized up from the old 12px (that row only had ~38px of slack
+    // per side) now that this row has ~30-45px of slack per side depending on
+    // Y - see drawStatusFlanking() for the actual margin verification.
+    private const STATUS_ICON_SIZE = 14.0;
+    private const STATUS_ICON_GAP = 2.0; // clearance from the Battery/HR box edge
+
     // ---- V2.1 pixel coordinate matrix (margin-verified against the real
     // 140px bezel radius - see the class-level comment above for the full
     // corner-distance methodology and what was wrong with the V2 numbers) ----
@@ -310,6 +319,8 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         var battColor = ColorScheme.batteryColor(_isSleeping, battery);
         drawBatteryBox(dc, battery, battColor);
         drawHeartRateBox(dc, textColor, panelColor);
+        // V3: BT/bell moved here from the Weather box - see drawStatusFlanking().
+        drawStatusFlanking(dc, textColor, panelColor);
 
         drawClockBox(dc, textColor, panelColor);
 
@@ -387,11 +398,34 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
+    // V3: client - "it occasionally touches the second hand" (the seconds
+    // readout, not an analog hand - this is a digital face). Root cause:
+    // timeFont/secFont are Graphics.getVectorFont() faces (sourceSansPro),
+    // which are proportional, not monospace - timeStr's measured width
+    // varies with which digits are showing (e.g. "11:11" is narrower than
+    // "18:08"). secX is normally the measured right edge of timeStr + a
+    // fixed 6px gap, which is correctly adaptive - but it's clamped to
+    // maxSecX (the box's right inner edge) so seconds never overflow the
+    // panel. For a wide timeStr, the adaptive secX can exceed maxSecX, so
+    // the clamp pulls seconds back left toward/into timeStr's own right
+    // edge - the actual source of the "touches" complaint, not a fixed
+    // shortfall that a bigger gap constant would fix.
+    //
+    // Client, precise correction over the earlier guess: "move the hours
+    // and minutes over 5 pixels to the left. Then leave the seconds where
+    // they are." So: timeStr's anchor shifts 5px left of true box center;
+    // seconds keep being computed from the ORIGINAL unshifted boxCX (not
+    // timeCX) - only the HH:MM group moves, which by itself opens up 5px
+    // of extra clearance to the seconds readout for every digit
+    // combination, without needing to touch where seconds themselves land.
+    private const TIME_ANCHOR_SHIFT_PX = 5.0;
+
     private function drawClockBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
         HudDraw.drawPanel(dc, CLOCK_BOX_X, CLOCK_BOX_Y, CLOCK_BOX_W, CLOCK_BOX_H, panelColor);
 
-        var cx = CLOCK_BOX_X + (CLOCK_BOX_W / 2.0);
+        var boxCX = CLOCK_BOX_X + (CLOCK_BOX_W / 2.0);
         var cy = CLOCK_BOX_Y + (CLOCK_BOX_H / 2.0);
+        var timeCX = boxCX - TIME_ANCHOR_SHIFT_PX;
 
         // Always 24-hour, regardless of device settings - client asked for
         // this explicitly, same as V1.
@@ -400,15 +434,18 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
 
         var timeFont = Fonts.timeFont();
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy, timeFont, timeStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.drawText(timeCX, cy, timeFont, timeStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         if (!_isSleeping) {
+            // Seconds position is computed from boxCX (the original,
+            // unshifted center) exactly as before this pass - "leave the
+            // seconds where they are." Only timeCX (above) moved.
             var timeDims = dc.getTextDimensions(timeStr, timeFont);
             var secFont = Fonts.secondsFont();
             var secStr = clockTime.sec.format("%02d");
             var secDims = dc.getTextDimensions(secStr, secFont);
 
-            var secX = cx + (timeDims[0] / 2.0) + 6.0;
+            var secX = boxCX + (timeDims[0] / 2.0) + 6.0;
             var maxSecX = CLOCK_BOX_X + CLOCK_BOX_W - 6.0 - secDims[0];
             if (secX > maxSecX) {
                 secX = maxSecX;
@@ -473,7 +510,11 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
             solarIcon = isRise ? _iconSolarRiseDay : _iconSolarSetDay;
         }
 
-        var iconCX = SOLAR_BOX_X + 10.0 + (SOLAR_W / 2.0);
+        // Client: "move the solar indicator (sun up or down) over 2
+        // pixels" - inset reduced 10 -> 8, shifting the icon 2px left
+        // (also now matches the Weather icon's 8px inset for visual
+        // consistency between the two bottom-row icons).
+        var iconCX = SOLAR_BOX_X + 8.0 + (SOLAR_W / 2.0);
         HudDraw.drawBitmapCentered(dc, iconCX, contentY, solarIcon, SOLAR_W, SOLAR_H);
 
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
@@ -499,19 +540,19 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     }
 
     // Weather gets its own dedicated box in V2 (superseding V1's combined
-    // WX+BT/notification row) - Bluetooth connection and the notification
-    // bell now flank this box left/right instead, per the brief. The
-    // native 32x32 weather icon and the 22x22/24x24 BT/bell icons are all
-    // scaled down together to a common size so the whole status strip
-    // reads as one consistent row rather than three mismatched icon
-    // sizes.
+    // WX+BT/notification row). V3: the "WX" text label is removed (client
+    // feedback, same pattern as the earlier PWR/HR label removals - the
+    // icon becomes its own label) and the Bluetooth/bell icons that used to
+    // flank this box moved up to flank the Battery/HR row instead (see
+    // drawStatusFlanking(), now called from onUpdate() next to those boxes).
+    // The horizontal room the label used to occupy is reclaimed by the
+    // weather icon: its left inset shrank from 22px to 8px, shifting it left
+    // into that freed space and opening up real breathing room between the
+    // icon and the temperature text rather than leaving the space empty.
     private function drawWeatherBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
         HudDraw.drawPanel(dc, WX_BOX_X, WX_BOX_Y, WX_BOX_W, WX_BOX_H, panelColor);
 
         var cy = WX_BOX_Y + (WX_BOX_H / 2.0);
-
-        dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(WX_BOX_X + 6.0, cy, Fonts.labelsFont(), "WX", Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
 
         var fullBucket = HudDraw.mapConditionToBucket(_cache.weatherCondition);
         var icon;
@@ -535,7 +576,10 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         }
 
         var statusIconSize = WX_BOX_H - 2.0;
-        var wxIconCX = WX_BOX_X + 22.0 + (statusIconSize / 2.0);
+        // V3: inset shrunk 22 -> 8 - reclaims the space the "WX" label used
+        // to occupy, shifting the icon left instead of leaving that room
+        // empty.
+        var wxIconCX = WX_BOX_X + 8.0 + (statusIconSize / 2.0);
         HudDraw.drawBitmapScaledCentered(dc, wxIconCX, cy, icon, WX_W, WX_H, statusIconSize, statusIconSize);
 
         // Client polish pass: box grew 16->20px tall specifically to make
@@ -546,37 +590,41 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         // existed because the box used to be too short for it.
         var tempText = formatTemperature(_cache.weatherTemperatureC);
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(WX_BOX_X + WX_BOX_W - 6.0, cy, Fonts.metricsFont(), tempText,
+        dc.drawText(WX_BOX_X + WX_BOX_W - 6.0, cy, Fonts.tempValueFont(), tempText,
             Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
-
-        drawStatusFlanking(dc, cy, textColor, panelColor);
     }
 
-    // Bluetooth connection glyph (+ live connected/disconnected dot) on the
-    // left of the Weather box, notification bell (+ live unread-count
-    // badge, skipped when the count is 0) on the right - "within the
-    // bottom status alignment" per the brief, positioned relative to the
-    // Weather box's real (possibly-nudged) edges rather than the original
-    // spec coordinates.
+    // V3: Bluetooth connection glyph (+ live connected/disconnected dot) and
+    // the notification bell (+ live unread-count badge, skipped when the
+    // count is 0) moved here from flanking the Weather box - client: "It
+    // should be to the left and right of the battery and heart where there
+    // is that little cut out." Bluetooth sits in the gap between the left
+    // bezel margin and the Battery box's left edge; the bell sits in the
+    // mirrored gap on the right of the HR box.
     //
-    // This deep into the bottom of a round display there is limited
-    // horizontal safe room left outside the Weather box itself (measured:
-    // ~78px half-width available at this row vs. the box's own 40px
-    // half-width, i.e. ~38px of slack per side after the V2.1 narrowing -
-    // better than V2's ~14px) - these two icons stay deliberately tiny and
-    // tucked close to the box edges rather than given the same breathing
-    // room as the rest of the face's chrome. Noted explicitly in the
-    // README rather than silently shrinking them without comment.
-    private function drawStatusFlanking(dc as Graphics.Dc, cy as Float, textColor as Number, panelColor as Number) as Void {
+    // Vertical position is NOT the row's literal center (Y=50, halfway
+    // between BATT_BOX_Y=28 and +44=72) - the safe bezel half-width at this
+    // row is tighter near the top (e.g. ~84px chord half-width at Y=28) than
+    // lower down (~122px at Y=72), the same corner-distance math used
+    // throughout this file. Anchoring at BATT_BOX_Y + BATT_BOX_H*0.66
+    // (Y=57.04, the same fraction the Steps/Solar content rows already use)
+    // lands both icons' worst corner (top, facing the row's tight side) at
+    // ~124.5px from the true (140,140)/r=140 center - a ~15.5px margin, well
+    // past the >=6px convention - while the notification-count badge's
+    // worst-case text ("9+" at ~12px wide) still keeps a ~6.7px margin at
+    // its own worst corner. Both real screenshot-verified, not just
+    // computed - see the sprint report.
+    private function drawStatusFlanking(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
         var deviceSettings = System.getDeviceSettings();
         var phoneConnected = deviceSettings.phoneConnected;
         var notifCount = deviceSettings.notificationCount;
 
         var btIcon = _isSleeping ? _iconBluetoothAod : _iconBluetoothDay;
         var bellIcon = _isSleeping ? _iconBellAod : _iconBellDay;
-        var iconSize = 12.0;
+        var iconSize = STATUS_ICON_SIZE;
+        var cy = BATT_BOX_Y + (BATT_BOX_H * 0.66);
 
-        var btCX = WX_BOX_X - 1.0 - (iconSize / 2.0);
+        var btCX = BATT_BOX_X - STATUS_ICON_GAP - (iconSize / 2.0);
         HudDraw.drawBitmapScaledCentered(dc, btCX, cy, btIcon, BT_W, BT_H, iconSize, iconSize);
 
         // Connection-status dot is live state, not decoration - shown in
@@ -586,7 +634,7 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         dc.setColor(dotColor, Graphics.COLOR_TRANSPARENT);
         dc.fillCircle(btCX + (iconSize * 0.30), cy - (iconSize * 0.30), 2.0);
 
-        var bellCX = WX_BOX_X + WX_BOX_W + 1.0 + (iconSize / 2.0);
+        var bellCX = HR_BOX_X + HR_BOX_W + STATUS_ICON_GAP + (iconSize / 2.0);
         HudDraw.drawBitmapScaledCentered(dc, bellCX, cy, bellIcon, BELL_W, BELL_H, iconSize, iconSize);
 
         if (notifCount > 0) {

@@ -95,11 +95,25 @@ module Fonts {
     // Client: "reduce the font of the battery number by 1" - scoped to just
     // the battery box, not the shared metricsFont() (which HR/steps/solar
     // values also use).
+    // V3: reduced 1 more px (12 -> 11) per the same ongoing request.
     function batteryValueFont() as Graphics.FontType {
         if (_batteryValue == null) {
-            _batteryValue = load(FACE_NUMERIC, 12, Graphics.FONT_SMALL);
+            _batteryValue = load(FACE_NUMERIC, 11, Graphics.FONT_SMALL);
         }
         return _batteryValue as Graphics.FontType;
+    }
+
+    var _tempValue as Graphics.FontType?;
+
+    // V3: client - "reduce the font size of the battery and temperature by
+    // 1 point" - scoped to just the Weather box's temp text, same reasoning
+    // as batteryValueFont() (metricsFont() is shared with HR/steps/solar
+    // values, which weren't asked to shrink).
+    function tempValueFont() as Graphics.FontType {
+        if (_tempValue == null) {
+            _tempValue = load(FACE_NUMERIC, 12, Graphics.FONT_SMALL);
+        }
+        return _tempValue as Graphics.FontType;
     }
 
     function headerFont() as Graphics.FontType {
