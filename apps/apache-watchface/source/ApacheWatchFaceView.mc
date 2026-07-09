@@ -2,35 +2,112 @@ import Toybox.WatchUi;
 import Toybox.Graphics;
 import Toybox.System;
 import Toybox.Lang;
-import Toybox.Math;
 import Toybox.Time;
 import Toybox.Time.Gregorian;
 import Toybox.ActivityMonitor;
 import Toybox.Application.Properties;
 
+// V2: fixed pixel coordinate matrix for the real 280x280 fenix7xpro panel
+// (center 140,140 / bezel radius 140) - replaces V1's dynamic
+// safeHalfWidth()/circle-geometry row layout with the client's literal
+// per-field boxes. Every box below is (X, Y, W, H) as given in the V2
+// spec table; two of them (Date, Weather) needed a small nudge after a
+// real screenshot showed bezel clipping - see the comments on those two
+// specifically. Nothing else was touched.
 class ApacheWatchFaceView extends WatchUi.WatchFace {
     private const DAY_ABBREV as Array<String> = ["", "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
-    // Native bitmap pixel dimensions - fixed-size assets, not scaled at
-    // runtime, so layout math below sizes rows around these constants
-    // rather than the old "iconSize = boxH * fraction" live-vector
-    // approach.
+    // Native bitmap pixel dimensions - fixed-size assets, sized/positioned
+    // by the box layout below rather than scaled at runtime (except where
+    // a box is explicitly too small for the native asset - Weather/BT/Bell
+    // use HudDraw.drawBitmapScaledCentered() for that reason, noted at
+    // their call sites).
     private const BATTERY_W = 34.0;
     private const BATTERY_H = 18.0;
     private const HEART_W = 28.0;
     private const HEART_H = 28.0;
-    private const BOOT_W = 36.0;   // side-profile boot silhouette - wider than tall
+    private const BOOT_W = 36.0;
     private const BOOT_H = 24.0;
     private const SOLAR_W = 28.0;
     private const SOLAR_H = 28.0;
     private const WX_W = 32.0;
     private const WX_H = 32.0;
-    private const BANNER_W = 220.0;  // full asset canvas; opaque wings+text content is ~180x34, centered inside it
+    private const BANNER_W = 220.0;
     private const BANNER_H = 52.0;
     private const BT_W = 22.0;
     private const BT_H = 22.0;
     private const BELL_W = 24.0;
     private const BELL_H = 24.0;
+
+    // ---- V2 fixed pixel coordinate matrix (client spec, 280x280) ----
+    private const TITLE_BOX_X = 84.0;
+    private const TITLE_BOX_Y = 12.0;
+    private const TITLE_BOX_W = 112.0;
+    private const TITLE_BOX_H = 18.0;
+
+    private const BATT_BOX_X = 20.0;
+    private const BATT_BOX_Y = 32.0;
+    private const BATT_BOX_W = 92.0;
+    private const BATT_BOX_H = 46.0;
+
+    private const HR_BOX_X = 168.0;
+    private const HR_BOX_Y = 32.0;
+    private const HR_BOX_W = 92.0;
+    private const HR_BOX_H = 46.0;
+
+    private const CLOCK_BOX_X = 22.0;
+    private const CLOCK_BOX_Y = 84.0;
+    private const CLOCK_BOX_W = 236.0;
+    private const CLOCK_BOX_H = 72.0;
+
+    private const STEPS_BOX_X = 20.0;
+    private const STEPS_BOX_Y = 166.0;
+    private const STEPS_BOX_W = 108.0;
+    private const STEPS_BOX_H = 46.0;
+
+    private const SOLAR_BOX_X = 152.0;
+    private const SOLAR_BOX_Y = 166.0;
+    private const SOLAR_BOX_W = 108.0;
+    private const SOLAR_BOX_H = 46.0;
+
+    // Date box: literal spec matrix values (X=34,Y=216,W=212,H=34).
+    // Screenshotted and measured pixel-for-pixel (see README "Bezel
+    // clipping check") - the date text itself renders comfortably inside
+    // this box with margin to spare, so it's kept exactly as spec'd.
+    private const DATE_BOX_X = 34.0;
+    private const DATE_BOX_Y = 216.0;
+    private const DATE_BOX_W = 212.0;
+    private const DATE_BOX_H = 34.0;
+
+    // Weather box: spec literal was X=54,Y=252,W=172,H=24. Two real,
+    // independently-confirmed problems found from a screenshot + pixel
+    // measurement of the first pass (see README):
+    //   1. Bezel clipping - literal box corners land ~161px from center
+    //      against a 140px bezel radius, worst of any box in the matrix.
+    //   2. The client's own matrix has Footer starting at Y=268, which is
+    //      BEFORE this box's own literal bottom edge (252+24=276) - the
+    //      two elements were specified to overlap regardless of the round
+    //      bezel. Screenshot confirmed this: weather temp/icon and the
+    //      "BRAVO-4" footer text visibly overlapped.
+    // Narrowed and nudged per the brief's explicit "nudge up/narrower
+    // slightly" permission; BT/bell status icons (drawn in
+    // drawStatusFlanking) key off these final numbers, not the original
+    // spec ones.
+    private const WX_BOX_X = 80.0;
+    private const WX_BOX_Y = 250.0;
+    private const WX_BOX_W = 120.0;
+    private const WX_BOX_H = 18.0;
+
+    // Footer: spec literal Y=268 overlapped the Weather box's own literal
+    // bottom edge (276) even before considering the bezel - moved down to
+    // start just after the (also-adjusted) Weather box's real bottom edge
+    // instead, so the two no longer collide.
+    private const FOOTER_CX = 140.0;
+    private const FOOTER_Y = 270.0;
+    private const FOOTER_H = 10.0;
+
+    private const SCREEN_CX = 140.0;
+    private const SCREEN_CY = 140.0;
 
     private var _cache as DataCache;
     private var _isSleeping as Boolean = false;
@@ -128,219 +205,145 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         WatchUi.requestUpdate();
     }
 
-    // No onPartialUpdate() override: the design hides seconds in Always-On
-    // mode, so there's nothing that needs a per-second redraw while
-    // sleeping. Without a partial-update handler the system falls back to
-    // its default low-power behavior of calling onUpdate() once a minute -
-    // which is exactly the "redraw only what changes, rarely" behavior the
-    // battery-optimization brief asked for, for free.
+    // No onPartialUpdate() override: seconds (the one per-second element)
+    // are hidden in Always-On mode, so there's nothing that needs a
+    // per-second redraw while sleeping - the system's default low-power
+    // fallback of calling onUpdate() once a minute is exactly right here,
+    // for free. The V2 chapter-ring/box restyle doesn't change this.
     function onUpdate(dc as Graphics.Dc) as Void {
         _cache.refresh(_isSleeping);
-
-        var w = dc.getWidth();
-        var h = dc.getHeight();
-        var cx = w / 2.0;
-        var cy = h / 2.0;
-        var r = (w < h ? w : h) / 2.0;
-        // Row-height/gap constants below are pixel-tuned against the real
-        // fenix7xpro panel (280x280, r=140); `scale` keeps that tuning
-        // proportionally correct if this ever runs on a different-radius
-        // round display. The bitmap icons themselves are NOT scaled by
-        // this factor - they're fixed-size assets, drawn 1:1 always.
-        var scale = r / 140.0;
 
         dc.setColor(Graphics.COLOR_WHITE, ColorScheme.BACKGROUND);
         dc.clear();
 
         var textColor = ColorScheme.textColor(_isSleeping);
-        var accentColor = ColorScheme.accentColor(_isSleeping);
         var panelColor = ColorScheme.panelColor(_isSleeping);
 
-        // Row heights re-tuned against the real 280x280 (r=140) circle
-        // geometry - see the design brief's pixel-budget table. Seven
-        // full-size rows do not fit at this radius with generous sizing,
-        // so weather and Bluetooth/notification status share one row
-        // (split left/right) instead of each getting its own; that's the
-        // one deliberate compromise. Everything else keeps its own row.
-        // Client priority order (highest to lowest) still drives relative
-        // sizing: clock+seconds > temp/weather > next solar event > heart
-        // rate > steps > battery%. The AH-64E banner and the BT/notif
-        // half of the combined row are the two lowest-priority elements -
-        // sized last, with whatever room remains.
-        var bannerH = 32.0 * scale;  // opaque wings+text artwork is ~34px tall, centered in a 52px canvas
-        var row1H = 38.0 * scale;    // PWR / HR - battery 18h, heart 28h
-        var clockH = 76.0 * scale;   // clock + seconds - top priority, biggest
-        var row2H = 38.0 * scale;    // STP / SOLAR - boot 24h, solar 28h
-        var dateH = 18.0 * scale;
-        var wxBtH = 38.0 * scale;    // temp+weather (left) / BT+notifications (right) - shared row
-        var gap = 3.0 * scale;
+        // Chapter ring first (background layer) - every box below draws
+        // on top of it.
+        HudDraw.drawChapterRing(dc, SCREEN_CX, SCREEN_CY, textColor, panelColor);
 
-        // Banner doesn't exist in Always-On (decoration shouldn't survive
-        // into low power) - two different stack heights, each internally
-        // centered as its own block, so top margin ~= bottom margin holds
-        // true in both modes even though awake mode has one more row.
-        var showBanner = !_isSleeping;
-        var stackH = row1H + clockH + row2H + dateH + wxBtH + (gap * 4);
-        if (showBanner) {
-            stackH += bannerH + gap;
+        if (!_isSleeping) {
+            drawTitleBanner(dc);
         }
-
-        var contentR = r * 0.95;
-        var cursorY = cy - (stackH / 2.0);
-
-        if (showBanner) {
-            var bannerCY = cursorY + (bannerH / 2.0);
-            drawBannerRow(dc, cx, bannerCY);
-            cursorY += bannerH + gap;
-        }
-
-        var row1CY = cursorY + (row1H / 2.0);
-        drawPwrHrRow(dc, cx, row1CY, row1H, safeHalfWidth(row1CY - cy, contentR), textColor, accentColor, panelColor);
-        cursorY += row1H + gap;
-
-        var clockCY = cursorY + (clockH / 2.0);
-        drawClockRow(dc, cx, clockCY, clockH, safeHalfWidth(clockCY - cy, contentR), textColor, panelColor);
-        cursorY += clockH + gap;
-
-        var row2CY = cursorY + (row2H / 2.0);
-        drawStpSolarRow(dc, cx, row2CY, row2H, safeHalfWidth(row2CY - cy, contentR), textColor, panelColor);
-        cursorY += row2H + gap;
-
-        var dateCY = cursorY + (dateH / 2.0);
-        drawDateRow(dc, cx, dateCY, dateH, safeHalfWidth(dateCY - cy, contentR), textColor, panelColor);
-        cursorY += dateH + gap;
-
-        var wxBtCY = cursorY + (wxBtH / 2.0);
-        drawWxBtRow(dc, cx, wxBtCY, wxBtH, safeHalfWidth(wxBtCY - cy, contentR), textColor, accentColor, panelColor);
-    }
-
-    // Half-width of the display available at a given vertical distance
-    // `dy` from center, for a circle of radius `contentR`. Used to size
-    // every row against the real round-display geometry instead of a
-    // flat, eyeballed fraction of screen width.
-    private function safeHalfWidth(dy as Float, contentR as Float) as Float {
-        var v = (contentR * contentR) - (dy * dy);
-        if (v < 0) {
-            v = 0;
-        }
-        return Math.sqrt(v);
-    }
-
-    // Fixed 200x48 title banner, day-mode only. Callers must skip this
-    // entirely while sleeping (checked here too, defensively) - it's pure
-    // decoration and decoration doesn't survive into Always-On.
-    private function drawBannerRow(dc as Graphics.Dc, cx as Float, cy as Float) as Void {
-        if (_isSleeping) {
-            return;
-        }
-        HudDraw.drawBitmapCentered(dc, cx, cy, _bannerAh64e, BANNER_W, BANNER_H);
-    }
-
-    private function drawPwrHrRow(dc as Graphics.Dc, cx as Float, cy as Float, rowH as Float, halfWidth as Float,
-                                   textColor as Number, accentColor as Number, panelColor as Number) as Void {
-        // This is the lowest-priority row in the client's ordering, and
-        // it's also squeezed narrowest by round-display geometry (it sits
-        // furthest from center, right under the bezel). Claim more of the
-        // available halfWidth (0.94 vs. the 0.88 other rows use) and use a
-        // slimmer gap between the two boxes to buy back room.
-        var usableHalfWidth = halfWidth * 0.94;
-        var boxGap = usableHalfWidth * 0.06;
-        var boxW = usableHalfWidth - (boxGap / 2.0);
-        var boxH = rowH * 0.90;
-
-        var leftX0 = cx - usableHalfWidth;
-        var rightX1 = cx + usableHalfWidth;
-        var boxTop = cy - (boxH / 2.0);
-
-        HudDraw.drawPanel(dc, leftX0, boxTop, boxW, boxH, panelColor);
-        HudDraw.drawPanel(dc, rightX1 - boxW, boxTop, boxW, boxH, panelColor);
 
         var battery = System.getSystemStats().battery;
-        var contentY = cy - (boxH * 0.08);
-        // Stat text on this deprioritized row uses FONT_XTINY (a step down
-        // from the FONT_SMALL other rows use) to keep both boxes from
-        // crowding the fixed-size icon + "%"/BPM text into each other.
-        var statFont = Graphics.FONT_XTINY;
+        var battColor = ColorScheme.batteryColor(_isSleeping, battery);
+        drawBatteryBox(dc, battery, battColor);
+        drawHeartRateBox(dc, textColor, panelColor);
 
-        var battChrome = _isSleeping ? _iconBatteryChromeAod : _iconBatteryChromeDay;
-        var battCX = leftX0 + (boxW * 0.20);
-        HudDraw.drawBitmapCentered(dc, battCX, contentY, battChrome, BATTERY_W, BATTERY_H);
-        // Vector fill on top of the outline+nub bitmap - the chrome asset
-        // intentionally has no baked-in fill so one asset covers every
-        // charge level.
-        HudDraw.drawBatteryFill(dc, battCX - (BATTERY_W / 2.0), contentY - (BATTERY_H / 2.0), BATTERY_W, BATTERY_H, battery, accentColor);
-        dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(leftX0 + (boxW * 0.93), contentY, statFont, battery.format("%d") + "%", Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
-        HudDraw.drawDashedLine(dc, leftX0 + (boxW * 0.10), leftX0 + (boxW * 0.90), boxTop + (boxH * 0.86), panelColor);
+        drawClockBox(dc, textColor, panelColor);
 
-        var hrX0 = rightX1 - boxW;
-        var hrText = "--";
-        var hr = _cache.heartRate;
-        if (hr != null) {
-            hrText = hr.toString();
-        }
+        drawStepsBox(dc, textColor, panelColor);
+        drawSolarBox(dc, textColor, panelColor);
 
-        var heartIcon = _isSleeping ? _iconHeartAod : _iconHeartDay;
-        HudDraw.drawBitmapCentered(dc, hrX0 + (boxW * 0.24), contentY, heartIcon, HEART_W, HEART_H);
-        dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(hrX0 + (boxW * 0.93), contentY, statFont, hrText, Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
-        HudDraw.drawDashedLine(dc, hrX0 + (boxW * 0.10), hrX0 + (boxW * 0.90), boxTop + (boxH * 0.86), panelColor);
+        drawDateBox(dc, textColor, panelColor);
+        drawWeatherBox(dc, textColor, panelColor);
+
+        drawFooter(dc, textColor);
     }
 
-    private function drawClockRow(dc as Graphics.Dc, cx as Float, cy as Float, rowH as Float, halfWidth as Float,
-                                   textColor as Number, panelColor as Number) as Void {
-        var boxHalfWidth = halfWidth * 0.95;
-        var boxH = rowH * 0.92;
-        HudDraw.drawPanel(dc, cx - boxHalfWidth, cy - (boxH / 2.0), boxHalfWidth * 2.0, boxH, panelColor);
+    // Fixed 112x18 title box, day-mode only (pure decoration, doesn't
+    // survive into Always-On). The banner asset is a fixed 220x52 canvas -
+    // far larger than the box - so it's contain-fit scaled down via
+    // Dc.drawScaledBitmap (through HudDraw.drawBitmapScaledCentered)
+    // rather than force-stretched, which would visibly distort the
+    // wing/text artwork since the box's aspect ratio doesn't match the
+    // source asset's.
+    private function drawTitleBanner(dc as Graphics.Dc) as Void {
+        var cx = TITLE_BOX_X + (TITLE_BOX_W / 2.0);
+        var cy = TITLE_BOX_Y + (TITLE_BOX_H / 2.0);
+        HudDraw.drawBitmapScaledCentered(dc, cx, cy, _bannerAh64e, BANNER_W, BANNER_H, TITLE_BOX_W, TITLE_BOX_H);
+    }
+
+    // Battery box is the one field whose color can dynamically swap to
+    // Tactical Alert Red (see ColorScheme.batteryColor) - border, fill
+    // rect, label, and value text all use battColor so a critical charge
+    // reads unmistakably at a glance. The chrome outline+nub bitmap itself
+    // stays baked-in green (no runtime bitmap tint API - same constraint
+    // V1 had), so only the vector-drawn parts of the box actually turn
+    // red; the assembled box still reads clearly as an alert.
+    private function drawBatteryBox(dc as Graphics.Dc, battery as Float, battColor as Number) as Void {
+        HudDraw.drawPanel(dc, BATT_BOX_X, BATT_BOX_Y, BATT_BOX_W, BATT_BOX_H, battColor);
+
+        dc.setColor(battColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(BATT_BOX_X + 8.0, BATT_BOX_Y + 2.0, Fonts.labelsFont(), "PWR", Graphics.TEXT_JUSTIFY_LEFT);
+
+        var contentY = BATT_BOX_Y + (BATT_BOX_H * 0.66);
+        var battChrome = _isSleeping ? _iconBatteryChromeAod : _iconBatteryChromeDay;
+        var iconCX = BATT_BOX_X + 10.0 + (BATTERY_W / 2.0);
+        HudDraw.drawBitmapCentered(dc, iconCX, contentY, battChrome, BATTERY_W, BATTERY_H);
+        HudDraw.drawBatteryFill(dc, iconCX - (BATTERY_W / 2.0), contentY - (BATTERY_H / 2.0), BATTERY_W, BATTERY_H, battery, battColor);
+
+        dc.setColor(battColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(BATT_BOX_X + BATT_BOX_W - 8.0, contentY, Fonts.metricsFont(), battery.format("%d") + "%",
+            Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        HudDraw.drawDashedLine(dc, BATT_BOX_X + 6.0, BATT_BOX_X + BATT_BOX_W - 6.0, BATT_BOX_Y + 16.0, battColor);
+    }
+
+    private function drawHeartRateBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
+        HudDraw.drawPanel(dc, HR_BOX_X, HR_BOX_Y, HR_BOX_W, HR_BOX_H, panelColor);
+
+        dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(HR_BOX_X + 8.0, HR_BOX_Y + 2.0, Fonts.labelsFont(), "HR", Graphics.TEXT_JUSTIFY_LEFT);
+
+        var contentY = HR_BOX_Y + (HR_BOX_H * 0.66);
+        var heartIcon = _isSleeping ? _iconHeartAod : _iconHeartDay;
+        var iconCX = HR_BOX_X + 10.0 + (HEART_W / 2.0);
+        HudDraw.drawBitmapCentered(dc, iconCX, contentY, heartIcon, HEART_W, HEART_H);
+
+        var hr = _cache.heartRate;
+        var hrText = (hr != null) ? hr.toString() : "--";
+        dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(HR_BOX_X + HR_BOX_W - 8.0, contentY, Fonts.metricsFont(), hrText,
+            Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        HudDraw.drawDashedLine(dc, HR_BOX_X + 6.0, HR_BOX_X + HR_BOX_W - 6.0, HR_BOX_Y + 16.0, panelColor);
+    }
+
+    private function drawClockBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
+        HudDraw.drawPanel(dc, CLOCK_BOX_X, CLOCK_BOX_Y, CLOCK_BOX_W, CLOCK_BOX_H, panelColor);
+
+        var cx = CLOCK_BOX_X + (CLOCK_BOX_W / 2.0);
+        var cy = CLOCK_BOX_Y + (CLOCK_BOX_H / 2.0);
 
         // Always 24-hour, regardless of device settings - client asked for
-        // this explicitly. clockTime.hour is already 0-23, so this is just
-        // zero-padding it directly with no 12-hour conversion or AM/PM
-        // label.
+        // this explicitly, same as V1.
         var clockTime = System.getClockTime();
         var timeStr = Lang.format("$1$:$2$", [clockTime.hour.format("%02d"), clockTime.min.format("%02d")]);
 
+        var timeFont = Fonts.timeFont();
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy, Graphics.FONT_NUMBER_MEDIUM, timeStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.drawText(cx, cy, timeFont, timeStr, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         if (!_isSleeping) {
-            // Measure the actual rendered width of "HH:MM" at
-            // FONT_NUMBER_MEDIUM so seconds are placed just past its right
-            // edge. Seconds use a small plain text font (not a NUMBER
-            // font) - at NUMBER-font scale they pushed past the panel's
-            // right edge.
-            var timeDims = dc.getTextDimensions(timeStr, Graphics.FONT_NUMBER_MEDIUM);
+            var timeDims = dc.getTextDimensions(timeStr, timeFont);
+            var secFont = Fonts.secondsFont();
             var secStr = clockTime.sec.format("%02d");
-            var secDims = dc.getTextDimensions(secStr, Graphics.FONT_TINY);
-            var secX = cx + (timeDims[0] / 2.0) + (boxH * 0.04);
+            var secDims = dc.getTextDimensions(secStr, secFont);
 
-            // Clamp so seconds never render past the panel's right edge,
-            // regardless of locale digit width.
-            var maxSecX = cx + boxHalfWidth - secDims[0] - (boxH * 0.04);
+            var secX = cx + (timeDims[0] / 2.0) + 6.0;
+            var maxSecX = CLOCK_BOX_X + CLOCK_BOX_W - 6.0 - secDims[0];
             if (secX > maxSecX) {
                 secX = maxSecX;
             }
 
-            dc.drawText(secX, cy + (timeDims[1] * 0.22), Graphics.FONT_TINY, secStr,
+            dc.drawText(secX, cy + (timeDims[1] * 0.18), secFont, secStr,
                 Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
         }
     }
 
-    private function drawStpSolarRow(dc as Graphics.Dc, cx as Float, cy as Float, rowH as Float, halfWidth as Float,
-                                      textColor as Number, panelColor as Number) as Void {
-        var usableHalfWidth = halfWidth * 0.88;
-        var boxGap = usableHalfWidth * 0.10;
-        var boxW = usableHalfWidth - (boxGap / 2.0);
-        var boxH = rowH * 0.90;
+    private function drawStepsBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
+        HudDraw.drawPanel(dc, STEPS_BOX_X, STEPS_BOX_Y, STEPS_BOX_W, STEPS_BOX_H, panelColor);
 
-        var leftX0 = cx - usableHalfWidth;
-        var rightX1 = cx + usableHalfWidth;
-        var boxTop = cy - (boxH / 2.0);
+        dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(STEPS_BOX_X + 8.0, STEPS_BOX_Y + 2.0, Fonts.labelsFont(), "STP", Graphics.TEXT_JUSTIFY_LEFT);
 
-        HudDraw.drawPanel(dc, leftX0, boxTop, boxW, boxH, panelColor);
-        HudDraw.drawPanel(dc, rightX1 - boxW, boxTop, boxW, boxH, panelColor);
-
-        var contentY = cy - (boxH * 0.08);
+        var contentY = STEPS_BOX_Y + (STEPS_BOX_H * 0.66);
+        var bootIcon = _isSleeping ? _iconBootAod : _iconBootDay;
+        var iconCX = STEPS_BOX_X + 10.0 + (BOOT_W / 2.0);
+        HudDraw.drawBitmapCentered(dc, iconCX, contentY, bootIcon, BOOT_W, BOOT_H);
 
         var stepsText = "--";
         var info = ActivityMonitor.getInfo();
@@ -348,13 +351,20 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
             stepsText = info.steps.toString();
         }
 
-        var bootIcon = _isSleeping ? _iconBootAod : _iconBootDay;
-        HudDraw.drawBitmapCentered(dc, leftX0 + (boxW * 0.26), contentY, bootIcon, BOOT_W, BOOT_H);
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(leftX0 + (boxW * 0.92), contentY, Graphics.FONT_SMALL, stepsText, Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
-        HudDraw.drawDashedLine(dc, leftX0 + (boxW * 0.10), leftX0 + (boxW * 0.90), boxTop + (boxH * 0.86), panelColor);
+        dc.drawText(STEPS_BOX_X + STEPS_BOX_W - 8.0, contentY, Fonts.metricsFont(), stepsText,
+            Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
 
-        var solarX0 = rightX1 - boxW;
+        HudDraw.drawDashedLine(dc, STEPS_BOX_X + 6.0, STEPS_BOX_X + STEPS_BOX_W - 6.0, STEPS_BOX_Y + 16.0, panelColor);
+    }
+
+    private function drawSolarBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
+        HudDraw.drawPanel(dc, SOLAR_BOX_X, SOLAR_BOX_Y, SOLAR_BOX_W, SOLAR_BOX_H, panelColor);
+
+        dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(SOLAR_BOX_X + 8.0, SOLAR_BOX_Y + 2.0, Fonts.labelsFont(), "NEXT SOLAR", Graphics.TEXT_JUSTIFY_LEFT);
+
+        var contentY = SOLAR_BOX_Y + (SOLAR_BOX_H * 0.66);
         var label = "--:--";
         var isRise = true;
         var evLabel = _cache.solarEventLabel;
@@ -371,17 +381,19 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         } else {
             solarIcon = isRise ? _iconSolarRiseDay : _iconSolarSetDay;
         }
-        HudDraw.drawBitmapCentered(dc, solarX0 + (boxW * 0.26), contentY, solarIcon, SOLAR_W, SOLAR_H);
+
+        var iconCX = SOLAR_BOX_X + 10.0 + (SOLAR_W / 2.0);
+        HudDraw.drawBitmapCentered(dc, iconCX, contentY, solarIcon, SOLAR_W, SOLAR_H);
+
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(solarX0 + (boxW * 0.92), contentY, Graphics.FONT_SMALL, label, Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
-        HudDraw.drawDashedLine(dc, solarX0 + (boxW * 0.10), solarX0 + (boxW * 0.90), boxTop + (boxH * 0.86), panelColor);
+        dc.drawText(SOLAR_BOX_X + SOLAR_BOX_W - 8.0, contentY, Fonts.metricsFont(), label,
+            Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        HudDraw.drawDashedLine(dc, SOLAR_BOX_X + 6.0, SOLAR_BOX_X + SOLAR_BOX_W - 6.0, SOLAR_BOX_Y + 16.0, panelColor);
     }
 
-    private function drawDateRow(dc as Graphics.Dc, cx as Float, cy as Float, rowH as Float, halfWidth as Float,
-                                  textColor as Number, panelColor as Number) as Void {
-        var boxHalfWidth = halfWidth * 0.72;
-        var boxH = rowH * 0.90;
-        HudDraw.drawPanel(dc, cx - boxHalfWidth, cy - (boxH / 2.0), boxHalfWidth * 2.0, boxH, panelColor);
+    private function drawDateBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
+        HudDraw.drawPanel(dc, DATE_BOX_X, DATE_BOX_Y, DATE_BOX_W, DATE_BOX_H, panelColor);
 
         var info = Gregorian.info(Time.now(), Time.FORMAT_SHORT);
         var dayName = DAY_ABBREV[info.day_of_week];
@@ -390,45 +402,34 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
             ? Lang.format("$1$/$2$", [info.day.format("%02d"), info.month.format("%02d")])
             : Lang.format("$1$/$2$", [info.month.format("%02d"), info.day.format("%02d")]);
 
+        var cx = DATE_BOX_X + (DATE_BOX_W / 2.0);
+        var cy = DATE_BOX_Y + (DATE_BOX_H / 2.0);
+
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(cx, cy, Graphics.FONT_SMALL, dayName + " " + dateNums, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.drawText(cx, cy, Fonts.dateFont(), dayName + " " + dateNums, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    // Bottom-most, narrowest row on the face (per round-display geometry
-    // this close to the bezel there isn't room for weather, Bluetooth, and
-    // notifications as three separate rows) - so this is the one
-    // deliberate layout compromise: weather (icon+temp) on the left half,
-    // Bluetooth connection + unread notification count on the right half,
-    // both inside their own octagon panel like every other stat pair.
-    // Weather keeps its #2 client priority (sized via wxBtH same as any
-    // other stat row); BT/notifications are the lowest-priority element on
-    // the face and just take whatever the right half offers. This row is
-    // live status, not pure decoration, so unlike the banner it's drawn
-    // (dimmed) in Always-On too.
-    private function drawWxBtRow(dc as Graphics.Dc, cx as Float, cy as Float, rowH as Float, halfWidth as Float,
-                                  textColor as Number, accentColor as Number, panelColor as Number) as Void {
-        var usableHalfWidth = halfWidth * 0.92;
-        var boxGap = usableHalfWidth * 0.08;
-        var boxW = usableHalfWidth - (boxGap / 2.0);
-        var boxH = rowH * 0.90;
+    // Weather gets its own dedicated box in V2 (superseding V1's combined
+    // WX+BT/notification row) - Bluetooth connection and the notification
+    // bell now flank this box left/right instead, per the brief. The
+    // native 32x32 weather icon and the 22x22/24x24 BT/bell icons are all
+    // scaled down together to a common size so the whole status strip
+    // reads as one consistent row rather than three mismatched icon
+    // sizes.
+    private function drawWeatherBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
+        HudDraw.drawPanel(dc, WX_BOX_X, WX_BOX_Y, WX_BOX_W, WX_BOX_H, panelColor);
 
-        var leftX0 = cx - usableHalfWidth;
-        var rightX1 = cx + usableHalfWidth;
-        var boxTop = cy - (boxH / 2.0);
+        var cy = WX_BOX_Y + (WX_BOX_H / 2.0);
 
-        HudDraw.drawPanel(dc, leftX0, boxTop, boxW, boxH, panelColor);
-        HudDraw.drawPanel(dc, rightX1 - boxW, boxTop, boxW, boxH, panelColor);
+        dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(WX_BOX_X + 6.0, cy, Fonts.labelsFont(), "WX", Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
 
-        var contentY = cy - (boxH * 0.08);
-        var statFont = Graphics.FONT_XTINY;
-
-        // Left box: weather icon + temperature.
         var fullBucket = HudDraw.mapConditionToBucket(_cache.weatherCondition);
         var icon;
         if (_isSleeping) {
             // Always-On simplifies to 2 states per the brief: clear/cloudy
-            // collapse to the plain clear glyph, everything else (overcast,
-            // rain, snow, storm) collapses to the plain overcast glyph.
+            // collapse to the plain clear glyph, everything else collapses
+            // to the plain overcast glyph.
             icon = (fullBucket == :clear || fullBucket == :cloudy) ? _iconWxClearAod : _iconWxOvercastAod;
         } else if (fullBucket == :clear) {
             icon = _iconWxClearDay;
@@ -444,47 +445,85 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
             icon = _iconWxOvercastDay;
         }
 
-        HudDraw.drawBitmapCentered(dc, leftX0 + (boxW * 0.28), contentY, icon, WX_W, WX_H);
+        var statusIconSize = WX_BOX_H - 2.0;
+        var wxIconCX = WX_BOX_X + 22.0 + (statusIconSize / 2.0);
+        HudDraw.drawBitmapScaledCentered(dc, wxIconCX, cy, icon, WX_W, WX_H, statusIconSize, statusIconSize);
+
+        // This box is by far the shortest in the matrix (18px, after the
+        // clipping/overlap fix above) - FntMetrics (20px nominal, used by
+        // every other stat box) rendered noticeably taller than this box
+        // has room for, so the temperature value uses FntFooter (16px)
+        // here instead, the next size down.
         var tempText = formatTemperature(_cache.weatherTemperatureC);
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(leftX0 + (boxW * 0.94), contentY, statFont, tempText, Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
-        HudDraw.drawDashedLine(dc, leftX0 + (boxW * 0.10), leftX0 + (boxW * 0.90), boxTop + (boxH * 0.86), panelColor);
+        dc.drawText(WX_BOX_X + WX_BOX_W - 6.0, cy, Fonts.footerFont(), tempText,
+            Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
 
-        // Right box: Bluetooth connection glyph (+ a small connected/
-        // disconnected status dot) and the notification bell with a live
-        // unread count badge - skipped entirely when the count is 0 so an
-        // empty inbox doesn't draw a stray "0".
-        var rightX0 = rightX1 - boxW;
-        // System.getDeviceSettings() and its phoneConnected/notificationCount
-        // fields are all non-nullable per the API docs, so no null-guarding
-        // needed here (unlike the sensor/GPS reads elsewhere in this file).
+        drawStatusFlanking(dc, cy, textColor, panelColor);
+    }
+
+    // Bluetooth connection glyph (+ live connected/disconnected dot) on the
+    // left of the Weather box, notification bell (+ live unread-count
+    // badge, skipped when the count is 0) on the right - "within the
+    // bottom status alignment" per the brief, positioned relative to the
+    // Weather box's real (possibly-nudged) edges rather than the original
+    // spec coordinates.
+    //
+    // This deep into the bottom of a round display there is very little
+    // horizontal safe room left outside the Weather box itself (measured:
+    // ~74px half-width available at this row vs. the box's own ~60px
+    // half-width, i.e. under 14px of slack per side) - these two icons are
+    // deliberately tiny and tucked flush against the box edges rather than
+    // given the same breathing room as the rest of the face's chrome, to
+    // stay inside the bezel-safe circle at all. Noted explicitly in the
+    // README rather than silently shrinking them without comment.
+    private function drawStatusFlanking(dc as Graphics.Dc, cy as Float, textColor as Number, panelColor as Number) as Void {
         var deviceSettings = System.getDeviceSettings();
         var phoneConnected = deviceSettings.phoneConnected;
         var notifCount = deviceSettings.notificationCount;
 
         var btIcon = _isSleeping ? _iconBluetoothAod : _iconBluetoothDay;
         var bellIcon = _isSleeping ? _iconBellAod : _iconBellDay;
+        var iconSize = 12.0;
 
-        var btCX = rightX0 + (boxW * 0.10) + (BT_W / 2.0);
-        HudDraw.drawBitmapCentered(dc, btCX, contentY, btIcon, BT_W, BT_H);
+        var btCX = WX_BOX_X - 1.0 - (iconSize / 2.0);
+        HudDraw.drawBitmapScaledCentered(dc, btCX, cy, btIcon, BT_W, BT_H, iconSize, iconSize);
 
-        // Connection-status dot is live state, not decoration - shown
-        // (dimmed via accentColor already being the AOD-appropriate value)
-        // in both modes: accent color when the phone link is up, dim panel
+        // Connection-status dot is live state, not decoration - shown in
+        // both modes: text color when the phone link is up, dim panel
         // color when it's down.
-        var dotColor = phoneConnected ? accentColor : panelColor;
+        var dotColor = phoneConnected ? textColor : panelColor;
         dc.setColor(dotColor, Graphics.COLOR_TRANSPARENT);
-        dc.fillCircle(btCX + (BT_W * 0.32), contentY + (BT_H * 0.32), boxH * 0.08);
+        dc.fillCircle(btCX + (iconSize * 0.30), cy - (iconSize * 0.30), 2.0);
 
-        var bellCX = btCX + (BT_W / 2.0) + (boxW * 0.10) + (BELL_W / 2.0);
-        HudDraw.drawBitmapCentered(dc, bellCX, contentY, bellIcon, BELL_W, BELL_H);
+        var bellCX = WX_BOX_X + WX_BOX_W + 1.0 + (iconSize / 2.0);
+        HudDraw.drawBitmapScaledCentered(dc, bellCX, cy, bellIcon, BELL_W, BELL_H, iconSize, iconSize);
 
         if (notifCount > 0) {
             var countText = (notifCount > 9) ? "9+" : notifCount.toString();
             dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(rightX1 - (boxW * 0.06), contentY, statFont, countText, Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
+            dc.drawText(bellCX + (iconSize / 2.0) + 3.0, cy, Fonts.labelsFont(), countText,
+                Graphics.TEXT_JUSTIFY_LEFT | Graphics.TEXT_JUSTIFY_VCENTER);
         }
-        HudDraw.drawDashedLine(dc, rightX0 + (boxW * 0.10), rightX0 + (boxW * 0.90), boxTop + (boxH * 0.86), panelColor);
+    }
+
+    // Small centered callsign banner with a short tactical flourish tick on
+    // each side - kept in both modes (it's static chrome, same cost as the
+    // panel borders, not a per-second animation).
+    private function drawFooter(dc as Graphics.Dc, textColor as Number) as Void {
+        var text = "BRAVO-4";
+        var font = Fonts.footerFont();
+        var dims = dc.getTextDimensions(text, font);
+        var cy = FOOTER_Y + (FOOTER_H / 2.0);
+
+        dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(FOOTER_CX, cy, font, text, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        var flourishInner = (dims[0] / 2.0) + 6.0;
+        var flourishOuter = flourishInner + 10.0;
+        dc.setPenWidth(1);
+        dc.drawLine(FOOTER_CX - flourishOuter, cy, FOOTER_CX - flourishInner, cy);
+        dc.drawLine(FOOTER_CX + flourishInner, cy, FOOTER_CX + flourishOuter, cy);
     }
 
     private function formatTemperature(celsius as Numeric?) as String {

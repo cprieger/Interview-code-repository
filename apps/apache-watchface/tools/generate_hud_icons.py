@@ -22,11 +22,15 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 SCALE = 4  # supersampling factor for anti-aliasing
 
-DAY_GREEN = (140, 255, 110, 255)
+# V2 spec: single-hue "Tactical Green" (#39FF14 neon green) monochrome
+# scheme for EVERY field in day mode - the old AMBER (solar) / RED (heart)
+# per-field accent colors are gone. The watch face's only color override
+# left anywhere is the battery-critical alert, which is applied at
+# draw-time in Monkey C (ColorScheme.batteryColor), not baked into a
+# bitmap - so it's not part of this generator at all.
+DAY_GREEN = (57, 255, 20, 255)
 AOD_GREEN = (95, 168, 85, 255)
-AMBER = (242, 211, 60, 255)
-RED = (224, 90, 78, 255)
-DAY_GREEN_DETAIL = (46, 110, 40, 255)   # darker green for boot stitch/tread lines
+DAY_GREEN_DETAIL = (30, 130, 12, 255)   # darker green for boot stitch/tread lines
 AOD_GREEN_DETAIL = (48, 84, 44, 255)
 TRANSPARENT = (0, 0, 0, 0)
 
@@ -331,7 +335,7 @@ if __name__ == "__main__":
     battery_chrome(AOD_GREEN, name="battery_chrome_aod")
 
     print("Heart:")
-    heart(RED, name="heart_day")
+    heart(DAY_GREEN, name="heart_day")
     heart(AOD_GREEN, name="heart_aod")
 
     print("Boot:")
@@ -339,8 +343,8 @@ if __name__ == "__main__":
     boot(AOD_GREEN, AOD_GREEN_DETAIL, name="boot_aod")
 
     print("Solar event:")
-    solar_event(AMBER, True, name="solar_rise_day")
-    solar_event(AMBER, False, name="solar_set_day")
+    solar_event(DAY_GREEN, True, name="solar_rise_day")
+    solar_event(DAY_GREEN, False, name="solar_set_day")
     solar_event(AOD_GREEN, True, name="solar_rise_aod")
     solar_event(AOD_GREEN, False, name="solar_set_aod")
 

@@ -1,54 +1,66 @@
 import Toybox.Graphics;
 import Toybox.Lang;
 
-// Phosphor-green LCD palette. Day and Always-On are both single-hue green
-// (this design is inherently "monochrome" by construction) - the only
-// difference is that day mode carries two small accent hues (amber for
-// solar, red for heart) that Always-On desaturates down to the same green
-// as everything else, per the spec's "Always-On = monochrome" requirement.
-// MIP displays don't expose named accent constants for these hues, so
-// they're given as raw 0xRRGGBB literals - the firmware quantizes to the
-// nearest of the display's 64 palette colors.
+// V2 spec: Monochromatic Tactical Green against pitch black is the default
+// for EVERY field, in both day and Always-On mode - there is no longer a
+// per-field amber (solar) or red (heart) accent hue like V1 had. The ONLY
+// exception is a dynamic override: the battery field's drawing color swaps
+// to Tactical Alert Red whenever charge drops below BATTERY_CRITICAL_PCT.
+// Every other field (heart, solar, steps, weather, date, clock, chrome)
+// always uses the same flat green in a given mode - "monochrome by
+// construction," not "monochrome except for two baked-in accent colors"
+// like the old PHOSPHOR/AMBER/RED trio.
+//
+// Always-On still gets its own dimmer variant of the same hue (not a
+// different hue) so the "Always-On = monochrome" spec requirement and the
+// "single hue for everything" V2 requirement both hold at once.
 module ColorScheme {
-    const PHOSPHOR = 0x8CFF6E;      // primary text/icon green
-    const PHOSPHOR_DIM = 0x3E6B38;  // panel outlines, dividers, chapter ring
-    const AMBER = 0xF2D33C;         // day-mode solar accent only
-    const RED = 0xE05A4E;           // day-mode heart accent only
+    const TACTICAL_GREEN = 0x39FF14;   // day-mode primary color - text, icons, vector chrome
+    const AOD_GREEN = 0x1B7A0A;        // dimmed monochrome variant for Always-On
+    const ALERT_RED = 0xFF1E1E;        // Tactical Alert Red - battery-critical override ONLY
 
     const BACKGROUND = Graphics.COLOR_BLACK;
 
-    // Day mode (awake, full color)
-    const DAY_TEXT = PHOSPHOR;
-    const DAY_ACCENT = PHOSPHOR;
-    const DAY_SOLAR = AMBER;
-    const DAY_HEART = RED;
+    const BATTERY_CRITICAL_PCT = 15.0;
 
-    // Always-On mode (sleeping) - desaturated to a single dim green
-    const AOD_TEXT = 0x5FA855;
-    const AOD_ACCENT = 0x5FA855;
-    const AOD_SOLAR = 0x5FA855;
-    const AOD_HEART = 0x5FA855;
+    // Panel outlines / dashed dividers / chapter-ring ticks stay a dimmer
+    // shade of the same single hue in both modes - they're framing, not
+    // information, so they never compete with text/icons for attention.
+    const PANEL_DAY = 0x1C5E10;
+    const PANEL_AOD = 0x0E3A08;
 
     function textColor(isSleeping as Boolean) as Number {
-        return isSleeping ? AOD_TEXT : DAY_TEXT;
+        return isSleeping ? AOD_GREEN : TACTICAL_GREEN;
     }
 
+    // Icons/accents no longer get their own hue (heart and solar go back to
+    // plain green per spec) - accentColor is just an alias of textColor now,
+    // kept as its own function so call sites that conceptually want "the
+    // live-data highlight color" don't need to change if that ever splits
+    // again later.
     function accentColor(isSleeping as Boolean) as Number {
-        return isSleeping ? AOD_ACCENT : DAY_ACCENT;
+        return textColor(isSleeping);
     }
 
-    function solarColor(isSleeping as Boolean) as Number {
-        return isSleeping ? AOD_SOLAR : DAY_SOLAR;
-    }
-
-    function heartColor(isSleeping as Boolean) as Number {
-        return isSleeping ? AOD_HEART : DAY_HEART;
-    }
-
-    // Panel outlines, dividers, and the chapter ring stay dim in both
-    // modes - they're framing, not information, so they never compete
-    // with the text/icons for attention.
     function panelColor(isSleeping as Boolean) as Number {
-        return PHOSPHOR_DIM;
+        return isSleeping ? PANEL_AOD : PANEL_DAY;
+    }
+
+    // The ONLY field-level color override in the whole face: battery text,
+    // fill, and box border all swap to Tactical Alert Red below the
+    // critical threshold, in both day and Always-On mode. (MIP displays
+    // cost the same to redraw regardless of color, so there's no
+    // battery-optimization reason to suppress the alert color in
+    // Always-On - critical charge is exactly the kind of thing worth
+    // surfacing even while asleep.)
+    function batteryColor(isSleeping as Boolean, batteryPercent as Numeric) as Number {
+        if (batteryPercent < BATTERY_CRITICAL_PCT) {
+            return ALERT_RED;
+        }
+        return textColor(isSleeping);
+    }
+
+    function isBatteryCritical(batteryPercent as Numeric) as Boolean {
+        return batteryPercent < BATTERY_CRITICAL_PCT;
     }
 }

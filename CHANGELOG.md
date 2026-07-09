@@ -1,3 +1,14 @@
+## 2026-07-09 (2)
+
+- Implemented client V2 spec for `apps/apache-watchface` — tactical MFD layout:
+  - `source/ApacheWatchFaceView.mc` rewritten to the client's literal 280x280 pixel coordinate matrix, replacing V1's dynamic circle-geometry layout.
+  - `source/ColorScheme.mc` simplified to single-hue Tactical Green (`0x39FF14`), dropping V1's amber/red per-field accents; battery is now the only field with a dynamic override, swapping to Alert Red (`0xFF1E1E`) below 15% charge.
+  - `source/HudDraw.mc` — fixed 6px chamfer on panel boxes (was proportional), new `drawChapterRing()` (240° tick gauge, gap at 6 o'clock, verified not to repeat V1's removed gauge's "spiral" bug), `drawBitmapScaledCentered()` (contain-fit scaling via `Dc.drawScaledBitmap`).
+  - Custom "MFD-64" font resources from the spec don't exist and Connect IQ's font-resource pipeline expects BMFont atlases, not raw TTF (confirmed by a real compile attempt) — fell back to `Graphics.getVectorFont()` at the spec's 7 exact point sizes instead (`source/Fonts.mc`), verified actually rendering, not silently falling back to system defaults.
+  - Found and fixed two real bezel-clipping bugs the hand-worked geometry flagged before implementation: the Weather box and the Bravo4 footer overlapped at the spec'd coordinates; both repositioned slightly (Weather box + footer Y) after visual confirmation via screenshot.
+  - `tools/generate_hud_icons.py` recolored all day-mode icons to the single tactical-green scheme (heart/solar dropped their old fixed red/amber).
+  - Verified end-to-end: clean compile (`fenix7xpro` + `fenix7xpronowifi`), crash-free `monkeydo` run, ring gauge renders as clean ticks, battery-critical red alert fires correctly, Always-On mode still works after the layout rewrite — all via real screenshots, not assumption.
+
 ## 2026-07-09
 
 - Verified `apps/apache-watchface`'s bitmap HUD icon integration (already wired up on disk from a prior uncommitted pass) end-to-end via real compile + `monkeydo` run + simulator screenshots, and confirmed Always-On/sleep mode actually works (flagged unverified in a prior pass):

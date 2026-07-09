@@ -11,15 +11,25 @@ import Toybox.Weather;
 // icon's target bounding box in pixels.
 module HudDraw {
 
+    // Fixed chamfer size (px) for the octagon-cut "MFD box" panel outline -
+    // V2 spec wants a constant cut regardless of box size, replacing V1's
+    // proportional `min(w,h) * 0.16` (which made small boxes like the
+    // Weather box get a barely-there chamfer and made big boxes like the
+    // Clock get an oversized one).
+    const MFD_CHAMFER_PX = 6.0;
+    const MFD_STROKE_PX = 2;
+
     // Octagon ("clipped-corner") panel outline - the field-group framing
     // used throughout the phosphor-LCD look. Unfilled: Dc has no
     // multi-point outline primitive, so this walks the 8 corner points
     // with drawLine rather than relying on a "drawPolygon" that may not
-    // exist across SDK versions.
+    // exist across SDK versions. Chamfer is a fixed pixel size (not
+    // proportional to box size) per the V2 pixel-matrix spec.
     function drawPanel(dc as Graphics.Dc, x as Float, y as Float, w as Float, h as Float, color as Number) as Void {
-        var cut = (w < h ? w : h) * 0.16;
+        var maxCut = (w < h ? w : h) / 2.0;
+        var cut = (MFD_CHAMFER_PX < maxCut) ? MFD_CHAMFER_PX : maxCut;
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-        dc.setPenWidth(2);
+        dc.setPenWidth(MFD_STROKE_PX);
         var pts = [
             [x + cut, y], [x + w - cut, y],
             [x + w, y + cut], [x + w, y + h - cut],
@@ -52,18 +62,66 @@ module HudDraw {
         }
     }
 
-    // Interpolates linearly between two 0xRRGGBB colors at t in [0,1].
-    function lerpColor(c1 as Number, c2 as Number, t as Float) as Number {
-        var r1 = (c1 >> 16) & 0xFF;
-        var g1 = (c1 >> 8) & 0xFF;
-        var b1 = c1 & 0xFF;
-        var r2 = (c2 >> 16) & 0xFF;
-        var g2 = (c2 >> 8) & 0xFF;
-        var b2 = c2 & 0xFF;
-        var r = (r1 + (r2 - r1) * t).toNumber();
-        var g = (g1 + (g2 - g1) * t).toNumber();
-        var b = (b1 + (b2 - b1) * t).toNumber();
-        return (r << 16) | (g << 8) | b;
+    // Outer chapter-ring tick gauge (V2 re-add - a different, simpler ask
+    // than the V1 gauge that was removed entirely: plain radial tick marks,
+    // no gradient/power arc, so it can't hit the "broken spiral" bug the
+    // old arc-fill approach had). Ticks run around a 240-degree sweep
+    // (leaving a 120-degree gap), alternating major/minor depth by index.
+    //
+    // Angle convention: 0 degrees = 3 o'clock (standard math convention,
+    // CCW positive), screen Y is flipped (y = cy - r*sin) to account for
+    // screen coordinates increasing downward. Sweeping DECREASING angle
+    // from startDeg=210 to endDeg=-30 traces lower-left -> left -> top ->
+    // right -> lower-right, which puts the open gap centered at -90
+    // degrees - straight down, 6 o'clock - away from the clock/date/title,
+    // exactly where the spec asked for it. (Verified by screenshot, not
+    // just this math - see the watch face README.)
+    function drawChapterRing(dc as Graphics.Dc, cx as Float, cy as Float, majorColor as Number, minorColor as Number) as Void {
+        var outerR = 136.0;
+        var majorDepth = 12.0;
+        var minorDepth = 6.0;
+        var startDeg = 210.0;
+        var stepDeg = 6.0;
+        var tickCount = 40;
+
+        dc.setPenWidth(2);
+        for (var i = 0; i < tickCount; i++) {
+            var angleDeg = startDeg - (i * stepDeg);
+            var rad = Math.toRadians(angleDeg);
+            var cosA = Math.cos(rad);
+            var sinA = Math.sin(rad);
+            var isMajor = (i % 2) == 0;
+            var depth = isMajor ? majorDepth : minorDepth;
+            var innerR = outerR - depth;
+
+            dc.setColor(isMajor ? majorColor : minorColor, Graphics.COLOR_TRANSPARENT);
+            dc.drawLine(
+                cx + innerR * cosA, cy - innerR * sinA,
+                cx + outerR * cosA, cy - outerR * sinA
+            );
+        }
+    }
+
+    // Scales a bitmap into an arbitrary target box, centered on (cx, cy),
+    // preserving the bitmap's native aspect ratio (contain-fit, not
+    // stretch-fill - stretching would visibly distort the artwork since
+    // several target boxes have a different aspect ratio than their
+    // source asset, e.g. the AH-64E banner). Null-safe like
+    // drawBitmapCentered. Uses Dc.drawScaledBitmap(), confirmed present in
+    // this SDK's Graphics.Dc API.
+    function drawBitmapScaledCentered(dc as Graphics.Dc, cx as Float, cy as Float, bitmap as Graphics.BitmapType?,
+                                       nativeW as Float, nativeH as Float, maxW as Float, maxH as Float) as Void {
+        if (bitmap == null) {
+            return;
+        }
+        var scale = maxW / nativeW;
+        var scaleH = maxH / nativeH;
+        if (scaleH < scale) {
+            scale = scaleH;
+        }
+        var w = nativeW * scale;
+        var h = nativeH * scale;
+        dc.drawScaledBitmap(cx - (w / 2.0), cy - (h / 2.0), w, h, bitmap);
     }
 
     // Draws a bitmap centered on (cx, cy), given its native w/h. Bitmaps are
