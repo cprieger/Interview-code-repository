@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings>
+    <setting propertyKey="@Properties.dateFormatDDMM" title="@Strings.SettingDateFormatTitle">
+        <settingConfig type="list">
+            <listEntry value="true">@Strings.SettingDateFormatDDMM</listEntry>
+            <listEntry value="false">@Strings.SettingDateFormatMMDD</listEntry>
+        </settingConfig>
+    </setting>
+</settings>

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<properties>
+    <!-- true = DD/MM (e.g. "WED 08/07"), false = MM/DD (e.g. "WED 07/08") -->
+    <property id="dateFormatDDMM" type="boolean">true</property>
+</properties>

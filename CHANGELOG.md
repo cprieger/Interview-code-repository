@@ -1,3 +1,13 @@
+## 2026-07-08
+
+- Added new standalone app `apps/apache-watchface/` — Garmin Connect IQ watch face for the fenix 7X Pro Sapphire Solar, styled like an AH-64E cockpit HUD/MFD:
+  - `source/ApacheWatchFaceView.mc` — main draw loop: center HH:MM with smaller seconds, battery/heart-rate/steps/solar-event/date/weather fields, day vs. Always-On (monochrome, seconds hidden) rendering.
+  - `source/DataCache.mc` — throttled sensor refresh (weather every 15/45 min awake/asleep, heart rate every 5/60s awake/asleep, solar event once per day).
+  - `source/HudDraw.mc` — vector-drawn HUD icons (battery, heart, footprints, sun, weather) and a `Weather.CONDITION_*` → sunny/cloudy/rain/snow/storm icon mapper.
+  - `source/ColorScheme.mc` — white/cyan/yellow/red day palette vs. monochrome Always-On palette.
+  - `resources/` — DD/MM vs MM/DD date-format setting, launcher icon (generated via `tools/generate_launcher_icon.py`).
+  - `README.md` — Connect IQ SDK/VS Code local setup, build, sideload, and Connect IQ Store publishing steps, plus flagged unknowns (device id string, API constants) to verify on first build since the SDK wasn't available to compile-test in this environment.
+
 ## 2026-03-02 (4)
 
 - Added gameplay loop to `apps/m20-game/` — buildings, monster groups, combat narration:
