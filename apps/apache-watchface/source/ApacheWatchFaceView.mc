@@ -10,10 +10,52 @@ import Toybox.Application.Properties;
 // V2: fixed pixel coordinate matrix for the real 280x280 fenix7xpro panel
 // (center 140,140 / bezel radius 140) - replaces V1's dynamic
 // safeHalfWidth()/circle-geometry row layout with the client's literal
-// per-field boxes. Every box below is (X, Y, W, H) as given in the V2
-// spec table; two of them (Date, Weather) needed a small nudge after a
-// real screenshot showed bezel clipping - see the comments on those two
-// specifically. Nothing else was touched.
+// per-field boxes.
+//
+// V2.1 client feedback (real screenshot): text overlapping/unclear. Redid
+// every box's corner-distance math against the true 140px bezel radius
+// (worst corner = sqrt(max(|left-cx|,|right-cx|)^2 + max(|top-cy|,|bottom-cy|)^2))
+// instead of eyeballing, and found the V2 literal spec numbers put THREE
+// boxes' corners genuinely outside/at the visible circle, not just tight:
+// Battery/HR corner was ~161px from center (21px past the 140px edge),
+// Date's bottom corners were ~153px (13px past), Steps/Solar/Weather/Title
+// were all within ~0-1.4px of the edge (effectively zero margin). That's
+// a real source of the "overlapping/unclear" complaint - box borders and
+// text were being cut by the round bezel mask, not just crowded.
+//
+// Every box below was resized/repositioned to a verified >=6px corner
+// margin from the true edge (most land at 8-13px), narrowing width being
+// the main lever (frees far more margin per pixel than moving vertically,
+// since horizontal offset and vertical offset both feed the same corner
+// dist formula, and rows this close to the top/bottom already spend most
+// of their radius budget on the vertical term). Real geometry/render
+// limits found in the process, all honored rather than argued with:
+//   - The title banner and Weather box sit so close to the top/bottom pole
+//     of the circle that "push up/down AND stay margin-safe" trade off
+//     directly - narrowing bought far more safety per pixel than moving
+//     vertically did, so the title mostly got narrower with only a small
+//     (2px) up-nudge, not a dramatic one.
+//   - A real screenshot of an initial Weather-box "push down" (Y=252)
+//     showed the Footer text below it rendering visibly dim/soft compared
+//     to every other field on the exact same font - the round display's
+//     physical edge curvature/mask softens content in roughly the last
+//     15px of radius regardless of what the literal square-canvas corner
+//     math says, and that isn't captured by the formula above. Both boxes
+//     were pulled back toward center instead (Weather net 2px UP from
+//     V2's original position, Footer 2px up from V2's), prioritizing an
+//     actually-legible result over the literal direction of the nudge.
+//   - The Solar box's "NEXT SOLAR" label overflowed past its own right
+//     border once the box was narrowed - caught in the same screenshot,
+//     fixed by shortening the label to "SOLAR" (matches the terseness of
+//     every other box label: PWR/HR/STP) rather than widening the box
+//     back out.
+// Removing the outer chapter-ring tick gauge (dead code, gone from
+// HudDraw.mc/onUpdate() - client called it "the weird ring around the
+// edge") didn't directly free pixels for these boxes (the ring was a
+// background layer other boxes already drew over), but it does mean the
+// outer band of the face is no longer visually competing with tick marks,
+// so the added vertical gap around the clock (top row -> clock gap grew
+// 6px -> 12px) actually reads as breathing room instead of clutter.
 class ApacheWatchFaceView extends WatchUi.WatchFace {
     private const DAY_ABBREV as Array<String> = ["", "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
@@ -39,75 +81,77 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     private const BELL_W = 24.0;
     private const BELL_H = 24.0;
 
-    // ---- V2 fixed pixel coordinate matrix (client spec, 280x280) ----
-    private const TITLE_BOX_X = 84.0;
+    // ---- V2.1 pixel coordinate matrix (margin-verified against the real
+    // 140px bezel radius - see the class-level comment above for the full
+    // corner-distance methodology and what was wrong with the V2 numbers) ----
+    private const TITLE_BOX_X = 110.0;
     private const TITLE_BOX_Y = 12.0;
-    private const TITLE_BOX_W = 112.0;
-    private const TITLE_BOX_H = 18.0;
+    private const TITLE_BOX_W = 60.0;
+    private const TITLE_BOX_H = 14.0;
 
-    private const BATT_BOX_X = 20.0;
-    private const BATT_BOX_Y = 32.0;
-    private const BATT_BOX_W = 92.0;
-    private const BATT_BOX_H = 46.0;
+    private const BATT_BOX_X = 70.0;
+    private const BATT_BOX_Y = 28.0;
+    private const BATT_BOX_W = 64.0;
+    private const BATT_BOX_H = 44.0;
 
-    private const HR_BOX_X = 168.0;
-    private const HR_BOX_Y = 32.0;
-    private const HR_BOX_W = 92.0;
-    private const HR_BOX_H = 46.0;
+    private const HR_BOX_X = 146.0;
+    private const HR_BOX_Y = 28.0;
+    private const HR_BOX_W = 64.0;
+    private const HR_BOX_H = 44.0;
 
     private const CLOCK_BOX_X = 22.0;
     private const CLOCK_BOX_Y = 84.0;
     private const CLOCK_BOX_W = 236.0;
     private const CLOCK_BOX_H = 72.0;
 
-    private const STEPS_BOX_X = 20.0;
+    private const STEPS_BOX_X = 36.0;
     private const STEPS_BOX_Y = 166.0;
-    private const STEPS_BOX_W = 108.0;
+    private const STEPS_BOX_W = 88.0;
     private const STEPS_BOX_H = 46.0;
 
-    private const SOLAR_BOX_X = 152.0;
+    private const SOLAR_BOX_X = 156.0;
     private const SOLAR_BOX_Y = 166.0;
-    private const SOLAR_BOX_W = 108.0;
+    private const SOLAR_BOX_W = 88.0;
     private const SOLAR_BOX_H = 46.0;
 
-    // Date box: literal spec matrix values (X=34,Y=216,W=212,H=34).
-    // Screenshotted and measured pixel-for-pixel (see README "Bezel
-    // clipping check") - the date text itself renders comfortably inside
-    // this box with margin to spare, so it's kept exactly as spec'd.
-    private const DATE_BOX_X = 34.0;
-    private const DATE_BOX_Y = 216.0;
-    private const DATE_BOX_W = 212.0;
-    private const DATE_BOX_H = 34.0;
+    // Date box: was (34,216,212,34) in V2 - bottom corners measured ~153px
+    // from center against the 140px bezel radius (13px past the edge).
+    // Narrowed to a verified ~13px margin; Y left essentially where it was
+    // (216->218, a 2px fine-tune, not a deliberate push - Date wasn't part
+    // of the "push down" list, only the margin-fix list).
+    private const DATE_BOX_X = 70.0;
+    private const DATE_BOX_Y = 218.0;
+    private const DATE_BOX_W = 140.0;
+    private const DATE_BOX_H = 28.0;
 
-    // Weather box: spec literal was X=54,Y=252,W=172,H=24. Two real,
-    // independently-confirmed problems found from a screenshot + pixel
-    // measurement of the first pass (see README):
-    //   1. Bezel clipping - literal box corners land ~161px from center
-    //      against a 140px bezel radius, worst of any box in the matrix.
-    //   2. The client's own matrix has Footer starting at Y=268, which is
-    //      BEFORE this box's own literal bottom edge (252+24=276) - the
-    //      two elements were specified to overlap regardless of the round
-    //      bezel. Screenshot confirmed this: weather temp/icon and the
-    //      "BRAVO-4" footer text visibly overlapped.
-    // Narrowed and nudged per the brief's explicit "nudge up/narrower
-    // slightly" permission; BT/bell status icons (drawn in
-    // drawStatusFlanking) key off these final numbers, not the original
-    // spec ones.
-    private const WX_BOX_X = 80.0;
-    private const WX_BOX_Y = 250.0;
-    private const WX_BOX_W = 120.0;
-    private const WX_BOX_H = 18.0;
+    // Weather box: was (80,250,120,18) in V2, corners ~1.4px past the
+    // bezel edge. This box sits closest to the bottom pole of the circle,
+    // the same tight-geometry situation as the Title box at the top pole -
+    // narrowing bought far more margin per pixel than moving down did.
+    //
+    // A real screenshot of an initial "push down" attempt (Y=252) showed
+    // the Footer text below it rendering visibly dim/soft compared to
+    // every other field using the exact same font - the round display's
+    // physical edge curvature/mask starts softening content in that last
+    // ~15px band regardless of the literal square-canvas math, which
+    // corner-distance alone doesn't capture. Pulled back up to Y=248 (2px
+    // net UP from V2's original 250, not down) so the Footer below it has
+    // real clearance from that band - legibility over the literal
+    // direction of the nudge, since an unclear footer is exactly the
+    // defect this pass is fixing.
+    private const WX_BOX_X = 100.0;
+    private const WX_BOX_Y = 248.0;
+    private const WX_BOX_W = 80.0;
+    private const WX_BOX_H = 16.0;
 
-    // Footer: spec literal Y=268 overlapped the Weather box's own literal
-    // bottom edge (276) even before considering the bezel - moved down to
-    // start just after the (also-adjusted) Weather box's real bottom edge
-    // instead, so the two no longer collide.
+    // Footer: moved up to Y=268 (was 270 in V2) for the same reason as the
+    // Weather-box pullback above - a real screenshot showed this field
+    // rendering dim/unclear right at the literal canvas edge (bottom=280),
+    // even though the corner-distance math alone looked acceptable. Kept
+    // clearly clear of that edge instead (bottom=276, 4px shy of 280).
     private const FOOTER_CX = 140.0;
-    private const FOOTER_Y = 270.0;
-    private const FOOTER_H = 10.0;
-
-    private const SCREEN_CX = 140.0;
-    private const SCREEN_CY = 140.0;
+    private const FOOTER_Y = 268.0;
+    private const FOOTER_H = 8.0;
 
     private var _cache as DataCache;
     private var _isSleeping as Boolean = false;
@@ -209,7 +253,7 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     // are hidden in Always-On mode, so there's nothing that needs a
     // per-second redraw while sleeping - the system's default low-power
     // fallback of calling onUpdate() once a minute is exactly right here,
-    // for free. The V2 chapter-ring/box restyle doesn't change this.
+    // for free. The V2.1 margin/spacing rework doesn't change this.
     function onUpdate(dc as Graphics.Dc) as Void {
         _cache.refresh(_isSleeping);
 
@@ -218,10 +262,6 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
 
         var textColor = ColorScheme.textColor(_isSleeping);
         var panelColor = ColorScheme.panelColor(_isSleeping);
-
-        // Chapter ring first (background layer) - every box below draws
-        // on top of it.
-        HudDraw.drawChapterRing(dc, SCREEN_CX, SCREEN_CY, textColor, panelColor);
 
         if (!_isSleeping) {
             drawTitleBanner(dc);
@@ -243,9 +283,10 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         drawFooter(dc, textColor);
     }
 
-    // Fixed 112x18 title box, day-mode only (pure decoration, doesn't
-    // survive into Always-On). The banner asset is a fixed 220x52 canvas -
-    // far larger than the box - so it's contain-fit scaled down via
+    // Fixed 60x14 title box (was 112x18 in V2 - narrowed for bezel margin,
+    // see the class-level comment above), day-mode only (pure decoration,
+    // doesn't survive into Always-On). The banner asset is a fixed 220x52
+    // canvas - far larger than the box - so it's contain-fit scaled down via
     // Dc.drawScaledBitmap (through HudDraw.drawBitmapScaledCentered)
     // rather than force-stretched, which would visibly distort the
     // wing/text artwork since the box's aspect ratio doesn't match the
@@ -361,8 +402,14 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     private function drawSolarBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
         HudDraw.drawPanel(dc, SOLAR_BOX_X, SOLAR_BOX_Y, SOLAR_BOX_W, SOLAR_BOX_H, panelColor);
 
+        // "NEXT SOLAR" (10 chars) overflowed past the box's right border
+        // once the box was narrowed for bezel margin (real screenshot
+        // caught this, not just an estimate) - shortened to "SOLAR" to
+        // match the terseness of every other box label (PWR/HR/STP), same
+        // field, same icon (rise/set arrow) makes the meaning clear without
+        // the word "NEXT".
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(SOLAR_BOX_X + 8.0, SOLAR_BOX_Y + 2.0, Fonts.labelsFont(), "NEXT SOLAR", Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText(SOLAR_BOX_X + 8.0, SOLAR_BOX_Y + 2.0, Fonts.labelsFont(), "SOLAR", Graphics.TEXT_JUSTIFY_LEFT);
 
         var contentY = SOLAR_BOX_Y + (SOLAR_BOX_H * 0.66);
         var label = "--:--";
@@ -449,11 +496,11 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         var wxIconCX = WX_BOX_X + 22.0 + (statusIconSize / 2.0);
         HudDraw.drawBitmapScaledCentered(dc, wxIconCX, cy, icon, WX_W, WX_H, statusIconSize, statusIconSize);
 
-        // This box is by far the shortest in the matrix (18px, after the
-        // clipping/overlap fix above) - FntMetrics (20px nominal, used by
-        // every other stat box) rendered noticeably taller than this box
-        // has room for, so the temperature value uses FntFooter (16px)
-        // here instead, the next size down.
+        // This box is by far the shortest in the matrix (16px, after the
+        // clipping/overlap fix above) - FntMetrics (used by every other
+        // stat box) rendered noticeably taller than this box has room for,
+        // so the temperature value uses FntFooter here instead, the next
+        // size down.
         var tempText = formatTemperature(_cache.weatherTemperatureC);
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
         dc.drawText(WX_BOX_X + WX_BOX_W - 6.0, cy, Fonts.footerFont(), tempText,
@@ -469,13 +516,13 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     // Weather box's real (possibly-nudged) edges rather than the original
     // spec coordinates.
     //
-    // This deep into the bottom of a round display there is very little
+    // This deep into the bottom of a round display there is limited
     // horizontal safe room left outside the Weather box itself (measured:
-    // ~74px half-width available at this row vs. the box's own ~60px
-    // half-width, i.e. under 14px of slack per side) - these two icons are
-    // deliberately tiny and tucked flush against the box edges rather than
-    // given the same breathing room as the rest of the face's chrome, to
-    // stay inside the bezel-safe circle at all. Noted explicitly in the
+    // ~78px half-width available at this row vs. the box's own 40px
+    // half-width, i.e. ~38px of slack per side after the V2.1 narrowing -
+    // better than V2's ~14px) - these two icons stay deliberately tiny and
+    // tucked close to the box edges rather than given the same breathing
+    // room as the rest of the face's chrome. Noted explicitly in the
     // README rather than silently shrinking them without comment.
     private function drawStatusFlanking(dc as Graphics.Dc, cy as Float, textColor as Number, panelColor as Number) as Void {
         var deviceSettings = System.getDeviceSettings();

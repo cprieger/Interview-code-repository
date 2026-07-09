@@ -1,6 +1,5 @@
 import Toybox.Graphics;
 import Toybox.Lang;
-import Toybox.Math;
 import Toybox.Weather;
 
 // Panel/divider chrome (still vector-drawn - no anti-aliasing concerns for
@@ -59,46 +58,6 @@ module HudDraw {
             }
             dc.drawLine(x, y, xEnd, y);
             x += dash + gap;
-        }
-    }
-
-    // Outer chapter-ring tick gauge (V2 re-add - a different, simpler ask
-    // than the V1 gauge that was removed entirely: plain radial tick marks,
-    // no gradient/power arc, so it can't hit the "broken spiral" bug the
-    // old arc-fill approach had). Ticks run around a 240-degree sweep
-    // (leaving a 120-degree gap), alternating major/minor depth by index.
-    //
-    // Angle convention: 0 degrees = 3 o'clock (standard math convention,
-    // CCW positive), screen Y is flipped (y = cy - r*sin) to account for
-    // screen coordinates increasing downward. Sweeping DECREASING angle
-    // from startDeg=210 to endDeg=-30 traces lower-left -> left -> top ->
-    // right -> lower-right, which puts the open gap centered at -90
-    // degrees - straight down, 6 o'clock - away from the clock/date/title,
-    // exactly where the spec asked for it. (Verified by screenshot, not
-    // just this math - see the watch face README.)
-    function drawChapterRing(dc as Graphics.Dc, cx as Float, cy as Float, majorColor as Number, minorColor as Number) as Void {
-        var outerR = 136.0;
-        var majorDepth = 12.0;
-        var minorDepth = 6.0;
-        var startDeg = 210.0;
-        var stepDeg = 6.0;
-        var tickCount = 40;
-
-        dc.setPenWidth(2);
-        for (var i = 0; i < tickCount; i++) {
-            var angleDeg = startDeg - (i * stepDeg);
-            var rad = Math.toRadians(angleDeg);
-            var cosA = Math.cos(rad);
-            var sinA = Math.sin(rad);
-            var isMajor = (i % 2) == 0;
-            var depth = isMajor ? majorDepth : minorDepth;
-            var innerR = outerR - depth;
-
-            dc.setColor(isMajor ? majorColor : minorColor, Graphics.COLOR_TRANSPARENT);
-            dc.drawLine(
-                cx + innerR * cosA, cy - innerR * sinA,
-                cx + outerR * cosA, cy - outerR * sinA
-            );
         }
     }
 
