@@ -34,6 +34,16 @@ DAY_GREEN_DETAIL = (30, 130, 12, 255)   # darker green for boot stitch/tread lin
 AOD_GREEN_DETAIL = (48, 84, 44, 255)
 TRANSPARENT = (0, 0, 0, 0)
 
+# V4 "color variant": selective per-field accents reintroduced on top of
+# the V2 monochrome base - heart goes red (with a steel-gray dagger for
+# contrast), solar goes yellow (rise) / orange (set). Always-On stays
+# monochrome green in both cases (color is decoration; AOD only dims,
+# per the project's established rule) - only DAY variants use these.
+HEART_RED = (224, 32, 32, 255)
+DAGGER_STEEL = (198, 202, 206, 255)
+SOLAR_YELLOW = (255, 214, 51, 255)
+SOLAR_ORANGE = (255, 140, 26, 255)
+
 
 def canvas(w, h):
     W, H = w * SCALE, h * SCALE
@@ -68,7 +78,7 @@ def battery_chrome(color, w=34, h=18, name="battery_chrome"):
 
 
 # ------------------------------------------------------------------ heart
-def heart(color, size=28, name="heart"):
+def heart(color, size=28, name="heart", dagger_color=None):
     img, d, W, H = canvas(size, size)
     cx, cy = W / 2, H * 0.40
     r = W * 0.27
@@ -79,6 +89,35 @@ def heart(color, size=28, name="heart"):
         [(cx - 1.85 * r, cy + r * 0.35), (cx + 1.85 * r, cy + r * 0.35), (cx, tip_y)],
         fill=color,
     )
+
+    if dagger_color is not None:
+        # V4: dagger dead-center through the heart, hilt at the top
+        # cutout (the notch between the two lobes), blade running down
+        # through the tip.
+        cutout_y = cy - r * 0.72
+        pommel_r = r * 0.13
+        pommel_cy = cutout_y - r * 0.28
+        d.ellipse(
+            [cx - pommel_r, pommel_cy - pommel_r, cx + pommel_r, pommel_cy + pommel_r],
+            fill=dagger_color,
+        )
+        d.rectangle(
+            [cx - r * 0.05, pommel_cy, cx + r * 0.05, cutout_y - r * 0.06],
+            fill=dagger_color,
+        )
+        guard_w = r * 0.5
+        guard_h = r * 0.11
+        d.rectangle(
+            [cx - guard_w, cutout_y - guard_h / 2, cx + guard_w, cutout_y + guard_h / 2],
+            fill=dagger_color,
+        )
+        blade_tip_y = tip_y + r * 0.12
+        blade_w = r * 0.15
+        d.polygon(
+            [(cx - blade_w, cutout_y), (cx + blade_w, cutout_y), (cx, blade_tip_y)],
+            fill=dagger_color,
+        )
+
     finish(img, size, size, name)
 
 
@@ -351,16 +390,22 @@ if __name__ == "__main__":
     battery_chrome(AOD_GREEN, name="battery_chrome_aod")
 
     print("Heart:")
-    heart(DAY_GREEN, name="heart_day")
-    heart(AOD_GREEN, name="heart_aod")
+    # V4 color variant: heart goes red with a steel dagger through it in
+    # day mode; Always-On stays monochrome green (dagger shape kept for
+    # consistency, but in the dim detail green rather than steel, since
+    # AOD has no accent hues at all).
+    heart(HEART_RED, name="heart_day", dagger_color=DAGGER_STEEL)
+    heart(AOD_GREEN, name="heart_aod", dagger_color=AOD_GREEN_DETAIL)
 
     print("Boot:")
     boot(DAY_GREEN, DAY_GREEN_DETAIL, name="boot_day")
     boot(AOD_GREEN, AOD_GREEN_DETAIL, name="boot_aod")
 
     print("Solar event:")
-    solar_event(DAY_GREEN, True, name="solar_rise_day")
-    solar_event(DAY_GREEN, False, name="solar_set_day")
+    # V4 color variant: yellow sunrise, orange sunset in day mode.
+    # Always-On stays monochrome green (same reasoning as the heart above).
+    solar_event(SOLAR_YELLOW, True, name="solar_rise_day")
+    solar_event(SOLAR_ORANGE, False, name="solar_set_day")
     solar_event(AOD_GREEN, True, name="solar_rise_aod")
     solar_event(AOD_GREEN, False, name="solar_set_aod")
 
