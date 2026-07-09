@@ -99,9 +99,12 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     private const HR_BOX_W = 64.0;
     private const HR_BOX_H = 44.0;
 
-    private const CLOCK_BOX_X = 22.0;
+    // Client feedback: box had too much left/right padding - narrowed 6px
+    // per side (236 -> 224), re-centered on the same 140px axis (22+6=28,
+    // 28+224=252, center still 140).
+    private const CLOCK_BOX_X = 28.0;
     private const CLOCK_BOX_Y = 84.0;
-    private const CLOCK_BOX_W = 236.0;
+    private const CLOCK_BOX_W = 224.0;
     private const CLOCK_BOX_H = 72.0;
 
     private const STEPS_BOX_X = 36.0;
@@ -119,10 +122,17 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     // Narrowed to a verified ~13px margin; Y left essentially where it was
     // (216->218, a 2px fine-tune, not a deliberate push - Date wasn't part
     // of the "push down" list, only the margin-fix list).
+    // DATE_BOX_H trimmed 28 -> 22 as a direct companion to halving the date
+    // font (Fonts.dateFont 16->8px): the box had only a 2px gap to the
+    // Weather box below it, not enough room to grow/raise the Weather row
+    // per client feedback without this. The much smaller font leaves the
+    // box mostly empty vertically anyway, so shaving 6px off the bottom
+    // (Y kept at 218, only the bottom edge moves 246->240) frees that
+    // margin without changing the date row's on-screen position/corner.
     private const DATE_BOX_X = 70.0;
     private const DATE_BOX_Y = 218.0;
     private const DATE_BOX_W = 140.0;
-    private const DATE_BOX_H = 28.0;
+    private const DATE_BOX_H = 22.0;
 
     // Weather box: was (80,250,120,18) in V2, corners ~1.4px past the
     // bezel edge. This box sits closest to the bottom pole of the circle,
@@ -139,18 +149,42 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     // real clearance from that band - legibility over the literal
     // direction of the nudge, since an unclear footer is exactly the
     // defect this pass is fixing.
-    private const WX_BOX_X = 100.0;
-    private const WX_BOX_Y = 248.0;
-    private const WX_BOX_W = 80.0;
-    private const WX_BOX_H = 16.0;
+    //
+    // Client polish pass: "bigger, moved up a few pixels". Y 248->243 (5px
+    // up, freed by trimming DATE_BOX_H above - verified >=3px gap to the
+    // date box's new bottom edge at Y=240) and H 16->20 (+4, bottom edge
+    // ends up at 263, 1px net UP from the old 264, so the Footer below
+    // still keeps its clearance). Icon/temp-text size increase is driven
+    // off WX_BOX_H directly (see drawWeatherBox) so no separate constant
+    // needed for that part.
+    //
+    // W also widened 80->88 (X 100->96, still centered on 140) - a real
+    // screenshot at the original 80px width showed the bigger icon and
+    // bigger temp text colliding (icon's right edge landed inside the "5"
+    // of the temperature), since both grew toward each other with no
+    // extra horizontal room. The wider box fixes that with real clearance
+    // confirmed in a follow-up screenshot. Bottom-corner bezel margin
+    // re-checked with the new width: worst corner (96,263) is ~130.6px
+    // from the true (140,140)/r=140 center, a 9.4px margin - still safely
+    // inside the >=6px convention used throughout this matrix.
+    private const WX_BOX_X = 96.0;
+    private const WX_BOX_Y = 243.0;
+    private const WX_BOX_W = 88.0;
+    private const WX_BOX_H = 20.0;
 
     // Footer: moved up to Y=268 (was 270 in V2) for the same reason as the
     // Weather-box pullback above - a real screenshot showed this field
     // rendering dim/unclear right at the literal canvas edge (bottom=280),
     // even though the corner-distance math alone looked acceptable. Kept
     // clearly clear of that edge instead (bottom=276, 4px shy of 280).
+    //
+    // Client polish pass: nudged up another 2px (268->266) per "move up a
+    // few pixels off the bottom edge" - keeps a 3px gap to the Weather
+    // box's new bottom (263) and actually increases clearance to the
+    // canvas edge (280) from 4px to 6px, so this is strictly safer than
+    // before, not just different.
     private const FOOTER_CX = 140.0;
-    private const FOOTER_Y = 268.0;
+    private const FOOTER_Y = 266.0;
     private const FOOTER_H = 8.0;
 
     private var _cache as DataCache;
@@ -304,23 +338,26 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     // stays baked-in green (no runtime bitmap tint API - same constraint
     // V1 had), so only the vector-drawn parts of the box actually turn
     // red; the assembled box still reads clearly as an alert.
+    // Client polish pass: "PWR" text label removed - the battery icon
+    // itself (chrome + proportional fill) now sits up where the label
+    // used to be (BATT_BOX_Y+14 vs. the label's old +2, roughly the same
+    // top region of the box) and serves as the visual label. The percent
+    // value moves to its own centered row underneath (BATT_BOX_Y+34, near
+    // the box's bottom), so icon and value read as two clearly separated
+    // rows instead of a label+icon+value crowded into one.
     private function drawBatteryBox(dc as Graphics.Dc, battery as Float, battColor as Number) as Void {
         HudDraw.drawPanel(dc, BATT_BOX_X, BATT_BOX_Y, BATT_BOX_W, BATT_BOX_H, battColor);
 
-        dc.setColor(battColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(BATT_BOX_X + 8.0, BATT_BOX_Y + 2.0, Fonts.labelsFont(), "PWR", Graphics.TEXT_JUSTIFY_LEFT);
-
-        var contentY = BATT_BOX_Y + (BATT_BOX_H * 0.66);
+        var iconCX = BATT_BOX_X + (BATT_BOX_W / 2.0);
+        var iconCY = BATT_BOX_Y + 14.0;
         var battChrome = _isSleeping ? _iconBatteryChromeAod : _iconBatteryChromeDay;
-        var iconCX = BATT_BOX_X + 10.0 + (BATTERY_W / 2.0);
-        HudDraw.drawBitmapCentered(dc, iconCX, contentY, battChrome, BATTERY_W, BATTERY_H);
-        HudDraw.drawBatteryFill(dc, iconCX - (BATTERY_W / 2.0), contentY - (BATTERY_H / 2.0), BATTERY_W, BATTERY_H, battery, battColor);
+        HudDraw.drawBitmapCentered(dc, iconCX, iconCY, battChrome, BATTERY_W, BATTERY_H);
+        HudDraw.drawBatteryFill(dc, iconCX - (BATTERY_W / 2.0), iconCY - (BATTERY_H / 2.0), BATTERY_W, BATTERY_H, battery, battColor);
 
+        var valueCY = BATT_BOX_Y + 34.0;
         dc.setColor(battColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(BATT_BOX_X + BATT_BOX_W - 8.0, contentY, Fonts.metricsFont(), battery.format("%d") + "%",
-            Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
-
-        HudDraw.drawDashedLine(dc, BATT_BOX_X + 6.0, BATT_BOX_X + BATT_BOX_W - 6.0, BATT_BOX_Y + 16.0, battColor);
+        dc.drawText(iconCX, valueCY, Fonts.metricsFont(), battery.format("%d") + "%",
+            Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
     private function drawHeartRateBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
@@ -339,8 +376,6 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
         dc.drawText(HR_BOX_X + HR_BOX_W - 8.0, contentY, Fonts.metricsFont(), hrText,
             Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
-
-        HudDraw.drawDashedLine(dc, HR_BOX_X + 6.0, HR_BOX_X + HR_BOX_W - 6.0, HR_BOX_Y + 16.0, panelColor);
     }
 
     private function drawClockBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
@@ -395,8 +430,6 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
         dc.drawText(STEPS_BOX_X + STEPS_BOX_W - 8.0, contentY, Fonts.metricsFont(), stepsText,
             Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
-
-        HudDraw.drawDashedLine(dc, STEPS_BOX_X + 6.0, STEPS_BOX_X + STEPS_BOX_W - 6.0, STEPS_BOX_Y + 16.0, panelColor);
     }
 
     private function drawSolarBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
@@ -435,8 +468,6 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
         dc.drawText(SOLAR_BOX_X + SOLAR_BOX_W - 8.0, contentY, Fonts.metricsFont(), label,
             Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
-
-        HudDraw.drawDashedLine(dc, SOLAR_BOX_X + 6.0, SOLAR_BOX_X + SOLAR_BOX_W - 6.0, SOLAR_BOX_Y + 16.0, panelColor);
     }
 
     private function drawDateBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
@@ -496,14 +527,15 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         var wxIconCX = WX_BOX_X + 22.0 + (statusIconSize / 2.0);
         HudDraw.drawBitmapScaledCentered(dc, wxIconCX, cy, icon, WX_W, WX_H, statusIconSize, statusIconSize);
 
-        // This box is by far the shortest in the matrix (16px, after the
-        // clipping/overlap fix above) - FntMetrics (used by every other
-        // stat box) rendered noticeably taller than this box has room for,
-        // so the temperature value uses FntFooter here instead, the next
-        // size down.
+        // Client polish pass: box grew 16->20px tall specifically to make
+        // room for a bigger icon (statusIconSize above is WX_BOX_H-2, so
+        // 14->18px automatically) and bigger temp text - now uses
+        // FntMetrics (13px, the same size every other stat box's value
+        // uses) instead of the old FntFooter (11px) fallback that only
+        // existed because the box used to be too short for it.
         var tempText = formatTemperature(_cache.weatherTemperatureC);
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(WX_BOX_X + WX_BOX_W - 6.0, cy, Fonts.footerFont(), tempText,
+        dc.drawText(WX_BOX_X + WX_BOX_W - 6.0, cy, Fonts.metricsFont(), tempText,
             Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
 
         drawStatusFlanking(dc, cy, textColor, panelColor);

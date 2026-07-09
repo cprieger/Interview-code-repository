@@ -59,7 +59,9 @@ module Fonts {
 
     function timeFont() as Graphics.FontType {
         if (_time == null) {
-            _time = load(FACE_NUMERIC, 35, Graphics.FONT_NUMBER_MEDIUM);
+            // Client feedback: clock font down 2px (35 -> 33) as part of a
+            // pass that also narrowed the clock box's left/right margins.
+            _time = load(FACE_NUMERIC, 33, Graphics.FONT_NUMBER_MEDIUM);
         }
         return _time as Graphics.FontType;
     }
@@ -73,7 +75,10 @@ module Fonts {
 
     function dateFont() as Graphics.FontType {
         if (_date == null) {
-            _date = load(FACE_STENCIL, 16, Graphics.FONT_MEDIUM);
+            // Client explicitly asked for this to be halved (16 -> 8), not
+            // a smaller nudge - see honest legibility read in the sprint
+            // report if 8px reads too small on-device.
+            _date = load(FACE_STENCIL, 8, Graphics.FONT_XTINY);
         }
         return _date as Graphics.FontType;
     }

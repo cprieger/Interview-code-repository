@@ -43,24 +43,6 @@ module HudDraw {
         }
     }
 
-    // Short segmented "loading bar" style divider under a stat row. Dc has
-    // no dashed-stroke primitive, so this hand-draws the dash segments.
-    function drawDashedLine(dc as Graphics.Dc, x1 as Float, x2 as Float, y as Float, color as Number) as Void {
-        dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-        dc.setPenWidth(3);
-        var dash = 7.0;
-        var gap = 5.0;
-        var x = x1;
-        while (x < x2) {
-            var xEnd = x + dash;
-            if (xEnd > x2) {
-                xEnd = x2;
-            }
-            dc.drawLine(x, y, xEnd, y);
-            x += dash + gap;
-        }
-    }
-
     // Scales a bitmap into an arbitrary target box, centered on (cx, cy),
     // preserving the bitmap's native aspect ratio (contain-fit, not
     // stretch-fill - stretching would visibly distort the artwork since

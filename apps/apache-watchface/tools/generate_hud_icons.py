@@ -121,19 +121,20 @@ def boot(color, detail_color, w=36, h=24, name="boot"):
 
 # --------------------------------------------------------- solar rise/set
 def solar_event(color, rising, size=28, name="solar"):
+    """Half-sun sitting on a horizon line: dome above the line for sunrise,
+    dome below the line for sunset - simpler and more literal than the
+    previous full-circle-plus-arrow design."""
     img, d, W, H = canvas(size, size)
-    horizon_y = H * 0.62
+    horizon_y = H * 0.56
     lw = line_width(W)
-    sun_r = W * 0.19
-    d.ellipse([W / 2 - sun_r, horizon_y - sun_r, W / 2 + sun_r, horizon_y + sun_r], fill=color)
-    d.rectangle([W * 0.30, horizon_y - sun_r, W * 0.70, horizon_y + sun_r], fill=TRANSPARENT)
-    d.line([W * 0.14, horizon_y, W * 0.86, horizon_y], fill=color, width=lw)
-    ax = W * 0.82
-    ah = H * 0.16
+    r = W * 0.30
+    cx = W / 2.0
+    bbox = [cx - r, horizon_y - r, cx + r, horizon_y + r]
     if rising:
-        d.polygon([(ax, H * 0.12), (ax - ah * 0.6, H * 0.12 + ah), (ax + ah * 0.6, H * 0.12 + ah)], fill=color)
+        d.pieslice(bbox, 180, 360, fill=color)  # dome above the horizon
     else:
-        d.polygon([(ax, H * 0.30), (ax - ah * 0.6, H * 0.30 - ah), (ax + ah * 0.6, H * 0.30 - ah)], fill=color)
+        d.pieslice(bbox, 0, 180, fill=color)  # dome below the horizon
+    d.line([W * 0.10, horizon_y, W * 0.90, horizon_y], fill=color, width=lw)
     finish(img, size, size, name)
 
 

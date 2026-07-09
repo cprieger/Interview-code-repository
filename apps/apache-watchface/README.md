@@ -3,12 +3,14 @@
 A Garmin Connect IQ watch face for the **fenix 7X Pro Sapphire Solar**, styled as a
 monochromatic Tactical Green LCD/HUD readout: a big always-24-hour digital clock
 centered in the display, with octagon-cut ("clipped corner") panels for each stat
-group, dashed segment-style dividers under each stat row, and monospace/digital
-numerals — the look of an old cockpit MFD rendered on a modern round MIP display.
+group and monospace/digital numerals — the look of an old cockpit MFD rendered on
+a modern round MIP display.
 (V2 briefly added an outer chapter-ring tick gauge; V2.1 removed it entirely per
 client feedback — "the weird ring around the edge" — the second time a ring/gauge
 has been added and rejected in this project, so it isn't coming back without being
-asked again.)
+asked again. V2.2 removed the dashed segment-style dividers under each stat row for
+the same reason — client feedback: "remove the weird lines I don't like those, the
+little dashed lines.")
 
 **V2.1 layout**: every field sits at a fixed pixel coordinate in
 `source/ApacheWatchFaceView.mc`, not a proportional/dynamic layout — see "What's on
@@ -65,15 +67,15 @@ the methodology and what was wrong with the original V2 numbers.
 | Position | Box (X,Y,W,H) | Field |
 |---|---|---|
 | Top (day mode only) | 110,12,60,14 | "AH-64E" title banner, scaled down (contain-fit, `Dc.drawScaledBitmap`) from its native 220x52 canvas into the box — pure decoration, not drawn in Always-On |
-| Top left | 70,28,64,44 | Battery %, labeled "PWR" — chrome outline+nub bitmap with a vector fill rect on top, sized to charge level. **The one field with a dynamic color override**: swaps the whole box (border, fill, value, label) to Tactical Alert Red below 15% charge |
+| Top left | 70,28,64,44 | Battery % — **V2.2: "PWR" text label removed** per client feedback (the icon itself is the label now); the chrome outline+nub bitmap moved up into the box's top area (roughly where the text used to sit), with the % value centered in its own row underneath, clearly separated from the icon. **The one field with a dynamic color override**: swaps the whole box (border, fill, value) to Tactical Alert Red below 15% charge. Note: this makes the Battery box's internal layout visually inconsistent with the still-labeled HR box next to it — left as-is since only the battery box's label was requested to change |
 | Top right | 146,28,64,44 | Heart rate, labeled "HR" — heart bitmap, `--` when the sensor has no reading |
-| Center (largest) | 22,84,236,72 | Hours : Minutes in **24-hour format, always**, with smaller Seconds beside it (seconds hidden in Always-On) |
+| Center (largest) | 28,84,224,72 | Hours : Minutes in **24-hour format, always**, with smaller Seconds beside it (seconds hidden in Always-On). **V2.2**: box narrowed 236→224px (6px off each side, less left/right padding) and the clock font trimmed 35→33px, both per client feedback |
 | Bottom left | 36,166,88,46 | Step count, labeled "STP" — side-profile boot bitmap |
-| Bottom right | 156,166,88,46 | Next solar event, labeled "SOLAR" (shortened from "NEXT SOLAR", which overflowed the narrower box) — sun-on-horizon bitmap with rise/set arrow, `--:--` when no GPS fix |
-| Bottom center | 70,218,140,28 | Date, e.g. `THU 09/07` (DD/MM vs MM/DD configurable in Garmin Connect app settings) |
-| Very bottom | 100,248,80,16 | Temperature + weather bitmap icon, labeled "WX" — see "Bezel margin check" below |
+| Bottom right | 156,166,88,46 | Next solar event, labeled "SOLAR" (shortened from "NEXT SOLAR", which overflowed the narrower box) — sun-on-horizon bitmap with rise/set arrow, `--:--` when no GPS fix. Rise/set icon art was redesigned this pass (half-circle dome above/below a horizon line) — same box/size, new bitmap only |
+| Bottom center | 70,218,140,22 | Date, e.g. `THU 09/07` (DD/MM vs MM/DD configurable in Garmin Connect app settings). **V2.2**: date font halved (16→8px) per explicit client request, and the box height trimmed 28→22 to match (freed the margin the Weather box below needed to grow — see "Bezel margin check"). Read honestly: 8px is small, close to the 7px corner-label size, and worth a follow-up look if it reads as illegible on the actual device outdoors |
+| Very bottom | 96,243,88,20 | Temperature + weather bitmap icon, labeled "WX" — **V2.2**: box made bigger (16→20px tall, 80→88px wide) and moved up (Y 248→243) per client feedback; icon and temp-text font both grew accordingly (temp text now uses the same `FntMetrics`/13px every other stat box uses, up from `FntFooter`/11px). A first pass at the bigger sizes without widening the box caused the icon and temperature text to visibly collide in a screenshot — fixed by widening the box (still bezel-margin-safe, ~9.4px corner clearance) rather than shrinking either element back down. See "Bezel margin check" below |
 | Flanking the Weather box | ~12px, flush against its left/right edges | Bluetooth connection glyph + live status dot (left), notification bell + live unread-count badge, skipped at 0 (right) |
-| Very bottom, centered | cx=140, y=268,h=8 | "BRAVO-4" callsign footer with a short tactical flourish tick on each side |
+| Very bottom, centered | cx=140, y=266,h=8 | "BRAVO-4" callsign footer with a short tactical flourish tick on each side. **V2.2**: nudged up 2px (Y 268→266) per client feedback — this increases clearance to both the Weather box above (3px) and the canvas edge below (6px, up from 4px), so it's strictly safer than before |
 
 ### Color scheme (V2 — single hue by design)
 
@@ -97,6 +99,13 @@ scaled every named size down ~1/3 (relative hierarchy between roles unchanged, j
 smaller overall): `FntTime` **35px**, `FntSeconds` **23px**, `FntDate` **16px**,
 `FntMetrics` **13px**, `FntHeader` **12px**, `FntFooter` **11px**, `FntLabels`
 **7px** — see `source/Fonts.mc`.
+
+**V2.2 client polish pass** changed two of these: `FntTime` **35→33px** (client:
+trim the clock font a couple px) and `FntDate` **16→8px**, an explicit halving, not
+a small nudge (client: "half the size it currently is"). `FntDate`'s null-load
+fallback constant was also switched from `FONT_MEDIUM` to `FONT_XTINY` to match —
+falling back to a medium-sized enum font at an 8px call site would look wildly
+inconsistent if `getVectorFont()` ever failed to resolve.
 
 **This custom-typeface substitution was actually attempted this session**, not assumed to work: `consolab.ttf` was copied
 into `resources/fonts/`, declared via a `<font>` resource, and run through the real
@@ -171,6 +180,13 @@ caught that the geometry formula alone wouldn't have:
   40px half-width — ~38px of slack per side, better than V2's ~14px but still the
   tightest row on the face. These two icons stay deliberately tiny (12px) and
   tucked close to the box edges rather than given normal breathing room.
+- **V2.2 polish pass**: growing the Weather box (bigger icon/temp text, moved up
+  per client feedback) re-opened this exact margin question — re-verified with the
+  new (96,243,88,20) box: worst corner ~130.6px from center, a 9.4px margin, still
+  comfortably inside the >=6px convention used throughout. The Date box above it
+  was also trimmed (28→22px tall) to free the vertical gap the Weather box needed
+  to move up into, without touching its own bezel margin (it went from ~13px to
+  ~20px margin, i.e. safer, not tighter).
 
 ### Verification notes (screenshots, not just clean compiles)
 
@@ -267,7 +283,7 @@ on a different Garmin model. If he has a different watch, add his device id to
 One thing worth knowing before you submit: **"AH-64E Apache" is real Boeing
 branding/trademark.** This watch face doesn't use any Boeing artwork, name, or
 insignia in the code or icon — it's just a cockpit-instrument *aesthetic*
-(phosphor-green digital numerals, octagon-cut panel framing, dashed dividers).
+(phosphor-green digital numerals, octagon-cut panel framing).
 Keep the store listing's name and description generic ("phosphor HUD watch
 face" rather than "AH-64E Apache watch face") to stay clear of any trademark
 issue, especially since this is a public store submission and not just a
