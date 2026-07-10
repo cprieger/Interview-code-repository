@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Connect IQ application manifest.
+
+  NOTE on <iq:product> ids: Garmin's device-id strings for the fenix 7 Pro
+  line are inconsistent across firmware/SDK releases (the original 2023
+  "Sapphire Solar" Pro shipped as a Solar-only, no-WiFi SKU). Both
+  candidate ids are listed below. Before building, open this project in
+  the Connect IQ VS Code extension ("Monkey C: Edit Project") and use its
+  device picker to confirm which id(s) your installed SDK actually uses
+  for "fenix 7X Pro Sapphire Solar" — remove whichever one doesn't exist,
+  or add the correct one. This is a one-time, ~30 second check.
+
+  id (application UUID) below is a randomly generated placeholder GUID,
+  fine for local sideloading. If you later create a listing in the
+  Connect IQ Store developer portal, replace it with the App ID the
+  portal issues you.
+-->
+<iq:manifest xmlns:iq="http://www.garmin.com/xml/connectiq" version="3">
+    <iq:application
+        id="e9f2d43b-cb1a-4b7a-917d-c4e0781157da"
+        type="watchface"
+        name="@Strings.AppName"
+        entry="ApacheWatchFaceApp"
+        launcherIcon="@Drawables.LauncherIcon"
+        minApiLevel="3.4.0">
+
+        <iq:products>
+            <!-- fenix 7X Pro (WiFi-enabled variant) -->
+            <iq:product id="fenix7xpro"/>
+            <!-- fenix 7X Pro Sapphire Solar Edition (original no-WiFi solar SKU) -->
+            <iq:product id="fenix7xpronowifi"/>
+        </iq:products>
+
+        <iq:permissions>
+            <!-- Needed for Weather.getSunrise/getSunset (location-based solar events) -->
+            <iq:uses-permission id="Positioning"/>
+        </iq:permissions>
+
+        <iq:languages>
+            <iq:language>eng</iq:language>
+        </iq:languages>
+
+        <iq:barrels/>
+    </iq:application>
+</iq:manifest>

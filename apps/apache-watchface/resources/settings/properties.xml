@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<properties>
+    <!-- 1 = DD/MM (e.g. "WED 08/07"), 0 = MM/DD (e.g. "WED 07/08") -->
+    <!-- number, not boolean: Connect IQ's `list` settingConfig (used for the
+         labeled DD/MM vs MM/DD picker in settings.xml) isn't valid on a
+         boolean-typed property. -->
+    <property id="dateFormatDDMM" type="number">1</property>
+</properties>
