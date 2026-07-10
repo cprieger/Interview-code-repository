@@ -25,8 +25,6 @@
     <bitmap id="IconWxClearAod" filename="hud/wx_clear_aod.png"/>
     <bitmap id="IconWxOvercastAod" filename="hud/wx_overcast_aod.png"/>
 
-    <bitmap id="BannerAh64e" filename="hud/ah64e_banner.png"/>
-
     <bitmap id="IconBluetoothDay" filename="hud/bluetooth_day.png"/>
     <bitmap id="IconBluetoothAod" filename="hud/bluetooth_aod.png"/>
     <bitmap id="IconBellDay" filename="hud/bell_day.png"/>

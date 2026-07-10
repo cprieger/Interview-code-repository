@@ -10,37 +10,32 @@ import Toybox.Weather;
 // icon's target bounding box in pixels.
 module HudDraw {
 
-    // Fixed chamfer size (px) for the octagon-cut "MFD box" panel outline -
-    // V2 spec wants a constant cut regardless of box size, replacing V1's
-    // proportional `min(w,h) * 0.16` (which made small boxes like the
-    // Weather box get a barely-there chamfer and made big boxes like the
-    // Clock get an oversized one).
-    const MFD_CHAMFER_PX = 6.0;
-    const MFD_STROKE_PX = 2;
+    // V6: the octagon-cut "MFD box" panel outline (drawPanel(), previously
+    // called from every draw*Box() method) is gone entirely - client:
+    // "remove all the boxes... replace with clean divider lines." Framing
+    // is now a thin straight line between field rows/columns, the same
+    // "text + flanking line" language drawFooter() already used, rather
+    // than a bordered panel per field group.
+    const DIVIDER_STROKE_PX = 1;
 
-    // Octagon ("clipped-corner") panel outline - the field-group framing
-    // used throughout the phosphor-LCD look. Unfilled: Dc has no
-    // multi-point outline primitive, so this walks the 8 corner points
-    // with drawLine rather than relying on a "drawPolygon" that may not
-    // exist across SDK versions. Chamfer is a fixed pixel size (not
-    // proportional to box size) per the V2 pixel-matrix spec.
-    function drawPanel(dc as Graphics.Dc, x as Float, y as Float, w as Float, h as Float, color as Number) as Void {
-        var maxCut = (w < h ? w : h) / 2.0;
-        var cut = (MFD_CHAMFER_PX < maxCut) ? MFD_CHAMFER_PX : maxCut;
+    // Horizontal divider between two rows. Thin (1px, not the old 2px MFD
+    // box stroke) - it's framing, not information, so it should read as a
+    // quiet baseline, not compete with field text/icons. Callers pass
+    // ColorScheme.panelColor() (renamed conceptually to "divider color" by
+    // this change, constant names unchanged) so the dimness-relative-to-
+    // text-color role panels always had is preserved.
+    function drawHLine(dc as Graphics.Dc, x1 as Float, x2 as Float, y as Float, color as Number) as Void {
         dc.setColor(color, Graphics.COLOR_TRANSPARENT);
-        dc.setPenWidth(MFD_STROKE_PX);
-        var pts = [
-            [x + cut, y], [x + w - cut, y],
-            [x + w, y + cut], [x + w, y + h - cut],
-            [x + w - cut, y + h], [x + cut, y + h],
-            [x, y + h - cut], [x, y + cut]
-        ] as Array<[Numeric, Numeric]>;
-        var n = pts.size();
-        for (var i = 0; i < n; i++) {
-            var p1 = pts[i];
-            var p2 = pts[(i + 1) % n];
-            dc.drawLine(p1[0], p1[1], p2[0], p2[1]);
-        }
+        dc.setPenWidth(DIVIDER_STROKE_PX);
+        dc.drawLine(x1, y, x2, y);
+    }
+
+    // Vertical divider between two side-by-side fields in the same row
+    // (Battery|HR, Steps|Solar, Date|Timezone2).
+    function drawVLine(dc as Graphics.Dc, x as Float, y1 as Float, y2 as Float, color as Number) as Void {
+        dc.setColor(color, Graphics.COLOR_TRANSPARENT);
+        dc.setPenWidth(DIVIDER_STROKE_PX);
+        dc.drawLine(x, y1, x, y2);
     }
 
     // Scales a bitmap into an arbitrary target box, centered on (cx, cy),

@@ -16,18 +16,29 @@ import Toybox.Lang;
 // "single hue for everything" V2 requirement both hold at once.
 module ColorScheme {
     const TACTICAL_GREEN = 0x39FF14;   // day-mode primary color - text, icons, vector chrome
-    const AOD_GREEN = 0x1B7A0A;        // dimmed monochrome variant for Always-On
+
+    // V6: client - "brighten everything, especially Always-On/offline
+    // mode." The old 0x1B7A0A was ~2.1x dimmer than TACTICAL_GREEN channel-
+    // for-channel, which (sRGB gamma is non-linear) reads as roughly a 5x
+    // *perceptual* brightness drop, not a 2x one - genuinely "quite dim."
+    // Raised to a flat 2/3 scale of TACTICAL_GREEN's R/G/B (0x26AA0D) -
+    // still legibly dimmer than day mode (so Always-On stays visually
+    // distinct at a glance, per spec) but far less crushed.
+    const AOD_GREEN = 0x26AA0D;        // dimmed monochrome variant for Always-On
     const ALERT_RED = 0xFF1E1E;        // Tactical Alert Red - battery-critical override ONLY
 
     const BACKGROUND = Graphics.COLOR_BLACK;
 
     const BATTERY_CRITICAL_PCT = 15.0;
 
-    // Panel outlines / dashed dividers / chapter-ring ticks stay a dimmer
-    // shade of the same single hue in both modes - they're framing, not
-    // information, so they never compete with text/icons for attention.
-    const PANEL_DAY = 0x1C5E10;
-    const PANEL_AOD = 0x0E3A08;
+    // V6: these are now DIVIDER LINE colors (HudDraw.drawHLine/drawVLine),
+    // not box-outline colors - the octagon "MFD box" panels are gone (see
+    // HudDraw.mc). Raised alongside AOD_GREEN above ("everything should
+    // read brighter overall") but kept well below textColor() in both
+    // modes - dividers are framing, not information, and must never
+    // compete with field text/icons for attention.
+    const PANEL_DAY = 0x1F8C0B;
+    const PANEL_AOD = 0x155E07;
 
     function textColor(isSleeping as Boolean) as Number {
         return isSleeping ? AOD_GREEN : TACTICAL_GREEN;

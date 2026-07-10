@@ -66,7 +66,11 @@ module Fonts {
             // worst-case screenshot showed it actually colliding with
             // seconds, so backed off to 37 and paired with a smaller
             // seconds font below, re-verified clean at the same worst case.)
-            _time = load(FACE_NUMERIC, 37, Graphics.FONT_NUMBER_MEDIUM);
+            // V6: boxes removed (HudDraw.drawPanel() gone) freed real
+            // vertical room (CLOCK_BOX_H grew 72->84) - bumped 37 -> 44.
+            // Re-verified clean against a forced "88:88" + 2-digit-seconds
+            // worst case, same doctrine as V5 (see drawClockBox()).
+            _time = load(FACE_NUMERIC, 44, Graphics.FONT_NUMBER_MEDIUM);
         }
         return _time as Graphics.FontType;
     }
@@ -75,7 +79,9 @@ module Fonts {
         if (_seconds == null) {
             // V5: trimmed 23 -> 19 alongside the bigger time font, to keep
             // clearance between them at the worst-case digit width.
-            _seconds = load(FACE_NUMERIC, 19, Graphics.FONT_NUMBER_MILD);
+            // V6: scaled up proportionally with the bigger time font (19 ->
+            // 23), re-verified against the same "88:88" worst case.
+            _seconds = load(FACE_NUMERIC, 23, Graphics.FONT_NUMBER_MILD);
         }
         return _seconds as Graphics.FontType;
     }

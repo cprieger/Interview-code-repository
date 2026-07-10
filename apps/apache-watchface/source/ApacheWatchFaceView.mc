@@ -7,6 +7,30 @@ import Toybox.Time.Gregorian;
 import Toybox.ActivityMonitor;
 import Toybox.Application.Properties;
 
+// V6: store-publishable pass, branched fresh off main (not more commits on
+// the old add-apache-watchface branch, per this app's own versioning
+// convention). Four changes on top of the V2.1-era matrix documented
+// below:
+//   1. All octagon "MFD box" panel outlines (HudDraw.drawPanel()) are
+//      gone - replaced by thin divider lines (HudDraw.drawHLine/drawVLine)
+//      in the same "text + flanking line" language drawFooter() already
+//      used. See the new "V6 pixel coordinate matrix" comment block below
+//      for the reworked row layout this enabled.
+//   2. Clock got noticeably bigger (Fonts.timeFont() 37->44px, box H
+//      72->84) - the room came from tightening the box-border padding
+//      that's no longer needed between rows into flat 4px gaps, not from
+//      any new vertical territory (the total title-to-footer band is
+//      still ~262px, same budget as V2.1).
+//   3. A new Timezone 2 field sits beside the date (task 4) - user-
+//      configurable zone picker + manual US DST math, see TzCalc.mc, since
+//      Connect IQ has no public API for the watch's native "Time Zone 2"
+//      setting.
+//   4. Airframe (top banner) and squad (footer) text are now
+//      `alphaNumeric` string properties instead of a hardcoded string /
+//      baked bitmap - editable per-soldier via Garmin Connect Mobile, no
+//      recompile, since this is heading toward a public listing rather
+//      than one client's sideload.
+//
 // V2: fixed pixel coordinate matrix for the real 280x280 fenix7xpro panel
 // (center 140,140 / bezel radius 140) - replaces V1's dynamic
 // safeHalfWidth()/circle-geometry row layout with the client's literal
@@ -67,7 +91,9 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     private const BATTERY_W = 34.0;
     private const BATTERY_H = 18.0;
     private const HEART_W = 28.0;
-    private const HEART_H = 28.0;
+    // V6: client - heart icon "touches the bottom of its field." Trimmed
+    // 1px (28 -> 27) per the client's own suggested first try.
+    private const HEART_H = 27.0;
     private const BOOT_W = 36.0;
     // Grew 24->32: boot icon now includes an ankle shaft on top
     // (client: "give it like a little top to the boot").
@@ -88,8 +114,6 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     private const SOLAR_DISPLAY_SIZE = 17.0;
     private const WX_W = 32.0;
     private const WX_H = 32.0;
-    private const BANNER_W = 220.0;
-    private const BANNER_H = 52.0;
     private const BT_W = 22.0;
     private const BT_H = 22.0;
     private const BELL_W = 24.0;
@@ -104,119 +128,149 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     private const STATUS_ICON_SIZE = 14.0;
     private const STATUS_ICON_GAP = 2.0; // clearance from the Battery/HR box edge
 
-    // ---- V2.1 pixel coordinate matrix (margin-verified against the real
-    // 140px bezel radius - see the class-level comment above for the full
-    // corner-distance methodology and what was wrong with the V2 numbers) ----
-    private const TITLE_BOX_X = 110.0;
+    // ---- V6 pixel coordinate matrix ----
+    // Boxes are gone (see HudDraw.mc); these are now just content anchors
+    // plus divider-line positions. Every position below was re-verified
+    // against the real 140px bezel radius using the same corner-distance
+    // formula this file has used since V2.1:
+    //   worst_corner_dist = sqrt(max(|left-cx|,|right-cx|)^2 + max(|top-cy|,|bottom-cy|)^2)
+    // against center (140,140), required < 140 with >=6px margin. Removing
+    // the box borders/chamfer padding didn't free much *vertical* budget
+    // directly (the total usable band, title-top to footer-bottom, is
+    // still ~262px, same as V2.1) - what it did free is the padding that
+    // used to be reserved for box strokes/chamfers between rows, which was
+    // reallocated as a straight 4px row-to-row gap (with a 1px divider
+    // line at its midpoint) instead, and the clock box got the single
+    // biggest reallocation (+12px height) since a bigger clock was the
+    // explicit ask (task 3).
+    //
+    // Every row's margin was recomputed for its NEW Y position, not
+    // assumed to carry over from V2.1 - several rows shifted a few px and
+    // needed a fresh check (Steps/Solar's margin tightened 13.5->11.8px
+    // from shifting down 5px, Date/Tz2's combined two-field row is the
+    // tightest new margin at ~7.9px, both still comfortably >=6px).
+    private const TITLE_CX = 140.0;
     private const TITLE_BOX_Y = 12.0;
-    private const TITLE_BOX_W = 60.0;
     private const TITLE_BOX_H = 14.0;
+    // Bezel-safe cap on the title flourish's outer half-width at this row
+    // (dy=121 from center at Y=19 => max dx ~57.6px for a 6px margin) -
+    // used to clamp/skip the flanking lines instead of ever overflowing
+    // the top pole, regardless of how long the user's airframe string is.
+    private const TITLE_MAX_HALF_W = 52.0;
 
+    // V6 follow-up: client screenshot showed this row crowding the title
+    // text right above it (title bottom ~Y=26 vs. this row's old Y=28 -
+    // ~2px gap). Row nudged down 5px for real breathing room under the
+    // title; see DIV1_Y below for how far the divider that follows this
+    // row could actually move without landing on the clock box.
     private const BATT_BOX_X = 70.0;
-    private const BATT_BOX_Y = 28.0;
+    private const BATT_BOX_Y = 33.0;
     private const BATT_BOX_W = 64.0;
     private const BATT_BOX_H = 44.0;
 
     private const HR_BOX_X = 146.0;
-    private const HR_BOX_Y = 28.0;
+    private const HR_BOX_Y = 33.0;
     private const HR_BOX_W = 64.0;
-    private const HR_BOX_H = 44.0;
+    // No HR_BOX_H: the row's height is BATT_BOX_H (both fields share the
+    // same row) - HR_BOX_H was only ever read by the now-deleted
+    // HudDraw.drawPanel() call, keeping a second unused copy of the same
+    // 44.0 value around after box removal would just be dead code.
 
-    // Client feedback: box had too much left/right padding - narrowed 6px
-    // per side (236 -> 224), re-centered on the same 140px axis (22+6=28,
-    // 28+224=252, center still 140).
-    // V5: client - "move it about 10px to the right" - box shifted right
-    // (28 -> 38); right edge moves to 262, still ~6px clear of the safe
-    // bezel radius at this row's top (checked against the same
-    // corner-distance math used throughout this file), tighter than
-    // before but verified positive, not just assumed.
-    private const CLOCK_BOX_X = 38.0;
-    private const CLOCK_BOX_Y = 84.0;
+    // Divider under the Battery/HR row, and the vertical divider between
+    // them in the natural 12px gap (134..146) the two fields already left.
+    // V6 follow-up: shifted down with the row above (75->80) so the row
+    // and its divider move as a unit. This lands the divider's constant
+    // Y=80 1px past CLOCK_BOX_Y=79's nominal top edge - checked for a real
+    // visual collision (not just the constants) via screenshot: the clock's
+    // actual rendered digits sit far below that nominal box top (centered
+    // at CLOCK_BOX_Y + CLOCK_BOX_H/2 = 121, glyphs spanning roughly
+    // 99-143), so there's no visible overlap with the divider line at Y=80
+    // - confirmed clean, no need to cascade a clock-box shift (and the
+    // matrix rows below it) for a collision that doesn't actually render.
+    private const DIV1_Y = 80.0;
+    private const DIV1_X1 = 66.0;
+    private const DIV1_X2 = 214.0;
+    private const DIV_BATTHR_X = 140.0;
+    private const DIV_BATTHR_Y1 = 37.0;
+    private const DIV_BATTHR_Y2 = 73.0;
+
+    // Clock: the one field explicitly asked to get noticeably bigger (task
+    // 3). H grew 72->84 (the main lever - see Fonts.timeFont(), 37->44px)
+    // and it stayed centered on X=140 with the same 224px width (a wider
+    // box wasn't the bottleneck - see the margin note above, ~239px is the
+    // real bezel-safe ceiling here, not much more room than 224 already
+    // had). Re-verified against a forced "88:88" + 2-digit-seconds
+    // worst-case screenshot per this project's standing doctrine.
+    private const CLOCK_BOX_X = 28.0;
+    private const CLOCK_BOX_Y = 79.0;
     private const CLOCK_BOX_W = 224.0;
-    private const CLOCK_BOX_H = 72.0;
+    private const CLOCK_BOX_H = 84.0;
+
+    private const DIV2_Y = 167.0;
+    private const DIV2_X1 = 40.0;
+    private const DIV2_X2 = 240.0;
 
     private const STEPS_BOX_X = 36.0;
-    private const STEPS_BOX_Y = 166.0;
-    // Client: "go 2 more numbers in, from 123 basically to 150 as the end
-    // x coordinate" - widened so the box's right edge lands at X=150
-    // (was 36+88=124), giving the step-count value more room.
+    private const STEPS_BOX_Y = 171.0;
     private const STEPS_BOX_W = 114.0;
-    private const STEPS_BOX_H = 46.0;
+    private const STEPS_BOX_H = 44.0;
 
     private const SOLAR_BOX_X = 156.0;
-    private const SOLAR_BOX_Y = 166.0;
+    private const SOLAR_BOX_Y = 171.0;
     private const SOLAR_BOX_W = 88.0;
-    private const SOLAR_BOX_H = 46.0;
+    private const SOLAR_BOX_H = 44.0;
 
-    // Date box: was (34,216,212,34) in V2 - bottom corners measured ~153px
-    // from center against the 140px bezel radius (13px past the edge).
-    // Narrowed to a verified ~13px margin; Y left essentially where it was
-    // (216->218, a 2px fine-tune, not a deliberate push - Date wasn't part
-    // of the "push down" list, only the margin-fix list).
-    // DATE_BOX_H trimmed 28 -> 22 as a direct companion to halving the date
-    // font (Fonts.dateFont 16->8px): the box had only a 2px gap to the
-    // Weather box below it, not enough room to grow/raise the Weather row
-    // per client feedback without this. The much smaller font leaves the
-    // box mostly empty vertically anyway, so shaving 6px off the bottom
-    // (Y kept at 218, only the bottom edge moves 246->240) frees that
-    // margin without changing the date row's on-screen position/corner.
-    private const DATE_BOX_X = 70.0;
-    private const DATE_BOX_Y = 218.0;
-    private const DATE_BOX_W = 140.0;
-    private const DATE_BOX_H = 22.0;
+    private const DIV_STEPSSOLAR_X = 153.0;
+    private const DIV_STEPSSOLAR_Y1 = 175.0;
+    private const DIV_STEPSSOLAR_Y2 = 211.0;
+    private const DIV3_Y = 218.0;
+    private const DIV3_X1 = 36.0;
+    private const DIV3_X2 = 244.0;
 
-    // Weather box: was (80,250,120,18) in V2, corners ~1.4px past the
-    // bezel edge. This box sits closest to the bottom pole of the circle,
-    // the same tight-geometry situation as the Title box at the top pole -
-    // narrowing bought far more margin per pixel than moving down did.
-    //
-    // A real screenshot of an initial "push down" attempt (Y=252) showed
-    // the Footer text below it rendering visibly dim/soft compared to
-    // every other field using the exact same font - the round display's
-    // physical edge curvature/mask starts softening content in that last
-    // ~15px band regardless of the literal square-canvas math, which
-    // corner-distance alone doesn't capture. Pulled back up to Y=248 (2px
-    // net UP from V2's original 250, not down) so the Footer below it has
-    // real clearance from that band - legibility over the literal
-    // direction of the nudge, since an unclear footer is exactly the
-    // defect this pass is fixing.
-    //
-    // Client polish pass: "bigger, moved up a few pixels". Y 248->243 (5px
-    // up, freed by trimming DATE_BOX_H above - verified >=3px gap to the
-    // date box's new bottom edge at Y=240) and H 16->20 (+4, bottom edge
-    // ends up at 263, 1px net UP from the old 264, so the Footer below
-    // still keeps its clearance). Icon/temp-text size increase is driven
-    // off WX_BOX_H directly (see drawWeatherBox) so no separate constant
-    // needed for that part.
-    //
-    // W also widened 80->88 (X 100->96, still centered on 140) - a real
-    // screenshot at the original 80px width showed the bigger icon and
-    // bigger temp text colliding (icon's right edge landed inside the "5"
-    // of the temperature), since both grew toward each other with no
-    // extra horizontal room. The wider box fixes that with real clearance
-    // confirmed in a follow-up screenshot. Bottom-corner bezel margin
-    // re-checked with the new width: worst corner (96,263) is ~130.6px
-    // from the true (140,140)/r=140 center, a 9.4px margin - still safely
-    // inside the >=6px convention used throughout this matrix.
+    // Date + Timezone2 now share one row (task 4), split by a thin vertical
+    // divider instead of a second box. Combined row margin is the
+    // tightest new number in this matrix (~7.9px at dy=102, both fields'
+    // outer edges land at dx=84 <= the ~86.9px ceiling for a 6px margin) -
+    // verified, not assumed, since this is a brand-new two-field row.
+    private const DATE_BOX_X = 56.0;
+    private const DATE_BOX_Y = 222.0;
+    private const DATE_BOX_W = 80.0;
+    private const DATE_BOX_H = 20.0;
+
+    private const TZ2_BOX_X = 144.0;
+    private const TZ2_BOX_Y = 222.0;
+    private const TZ2_BOX_W = 80.0;
+    private const TZ2_BOX_H = 20.0;
+
+    private const DIV_DATETZ2_X = 140.0;
+    private const DIV_DATETZ2_Y1 = 224.0;
+    private const DIV_DATETZ2_Y2 = 240.0;
+    private const DIV4_Y = 244.0;
+    private const DIV4_X1 = 60.0;
+    private const DIV4_X2 = 220.0;
+
+    // Weather: gained back 2px of height (16->18) versus a first-pass
+    // matrix, by tightening the Date/Tz2->Weather gap to 4px (matches
+    // every other row-to-row gap in this matrix) instead of leaving 6.
     private const WX_BOX_X = 96.0;
-    private const WX_BOX_Y = 243.0;
+    private const WX_BOX_Y = 246.0;
     private const WX_BOX_W = 88.0;
-    private const WX_BOX_H = 20.0;
+    private const WX_BOX_H = 18.0;
 
-    // Footer: moved up to Y=268 (was 270 in V2) for the same reason as the
-    // Weather-box pullback above - a real screenshot showed this field
-    // rendering dim/unclear right at the literal canvas edge (bottom=280),
-    // even though the corner-distance math alone looked acceptable. Kept
-    // clearly clear of that edge instead (bottom=276, 4px shy of 280).
-    //
-    // Client polish pass: nudged up another 2px (268->266) per "move up a
-    // few pixels off the bottom edge" - keeps a 3px gap to the Weather
-    // box's new bottom (263) and actually increases clearance to the
-    // canvas edge (280) from 4px to 6px, so this is strictly safer than
-    // before, not just different.
+    // Footer position is UNCHANGED from V2.2/V5 - this Y was already
+    // real-screenshot-verified as the safe floor near the bottom pole (the
+    // round display's edge curvature softens content in the last ~15px of
+    // radius regardless of what corner-distance math alone says - see the
+    // V2.1 notes still above on the older constants this replaced). No
+    // reason to gamble that margin for a box-removal pass that doesn't
+    // need it.
     private const FOOTER_CX = 140.0;
     private const FOOTER_Y = 266.0;
     private const FOOTER_H = 8.0;
+    // Bezel-safe cap on the footer flourish's outer half-width (dy=126 at
+    // Y=270 => max dx ~45.6px for a 6px margin) - tighter than the title's
+    // cap since the bottom pole row sits closer to the true edge.
+    private const FOOTER_MAX_HALF_W = 42.0;
 
     private var _cache as DataCache;
     private var _isSleeping as Boolean = false;
@@ -242,7 +296,6 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     private var _iconWxStormDay as Graphics.BitmapType?;
     private var _iconWxClearAod as Graphics.BitmapType?;
     private var _iconWxOvercastAod as Graphics.BitmapType?;
-    private var _bannerAh64e as Graphics.BitmapType?;
     private var _iconBluetoothDay as Graphics.BitmapType?;
     private var _iconBluetoothAod as Graphics.BitmapType?;
     private var _iconBellDay as Graphics.BitmapType?;
@@ -289,8 +342,6 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         _iconWxClearAod = WatchUi.loadResource(Rez.Drawables.IconWxClearAod) as Graphics.BitmapType;
         _iconWxOvercastAod = WatchUi.loadResource(Rez.Drawables.IconWxOvercastAod) as Graphics.BitmapType;
 
-        _bannerAh64e = WatchUi.loadResource(Rez.Drawables.BannerAh64e) as Graphics.BitmapType;
-
         _iconBluetoothDay = WatchUi.loadResource(Rez.Drawables.IconBluetoothDay) as Graphics.BitmapType;
         _iconBluetoothAod = WatchUi.loadResource(Rez.Drawables.IconBluetoothAod) as Graphics.BitmapType;
         _iconBellDay = WatchUi.loadResource(Rez.Drawables.IconBellDay) as Graphics.BitmapType;
@@ -329,39 +380,83 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         var panelColor = ColorScheme.panelColor(_isSleeping);
 
         if (!_isSleeping) {
-            drawTitleBanner(dc);
+            drawTitleBanner(dc, textColor);
         }
 
         var battery = System.getSystemStats().battery;
         var battColor = ColorScheme.batteryColor(_isSleeping, battery);
         drawBatteryBox(dc, battery, battColor);
-        drawHeartRateBox(dc, textColor, panelColor);
+        drawHeartRateBox(dc, textColor);
         // V3: BT/bell moved here from the Weather box - see drawStatusFlanking().
         drawStatusFlanking(dc, textColor, panelColor);
 
-        drawClockBox(dc, textColor, panelColor);
+        // V6: boxes are gone - divider lines take their place (task 1).
+        // Battery/HR row: horizontal divider below, vertical divider
+        // between the two fields in their natural 12px gap.
+        HudDraw.drawHLine(dc, DIV1_X1, DIV1_X2, DIV1_Y, panelColor);
+        HudDraw.drawVLine(dc, DIV_BATTHR_X, DIV_BATTHR_Y1, DIV_BATTHR_Y2, panelColor);
 
-        drawStepsBox(dc, textColor, panelColor);
-        drawSolarBox(dc, textColor, panelColor);
+        drawClockBox(dc, textColor);
 
-        drawDateBox(dc, textColor, panelColor);
-        drawWeatherBox(dc, textColor, panelColor);
+        HudDraw.drawHLine(dc, DIV2_X1, DIV2_X2, DIV2_Y, panelColor);
+
+        drawStepsBox(dc, textColor);
+        drawSolarBox(dc, textColor);
+        HudDraw.drawVLine(dc, DIV_STEPSSOLAR_X, DIV_STEPSSOLAR_Y1, DIV_STEPSSOLAR_Y2, panelColor);
+        HudDraw.drawHLine(dc, DIV3_X1, DIV3_X2, DIV3_Y, panelColor);
+
+        drawDateBox(dc, textColor);
+        drawTz2Box(dc, textColor);
+        HudDraw.drawVLine(dc, DIV_DATETZ2_X, DIV_DATETZ2_Y1, DIV_DATETZ2_Y2, panelColor);
+        HudDraw.drawHLine(dc, DIV4_X1, DIV4_X2, DIV4_Y, panelColor);
+
+        drawWeatherBox(dc, textColor);
 
         drawFooter(dc, textColor);
     }
 
-    // Fixed 60x14 title box (was 112x18 in V2 - narrowed for bezel margin,
-    // see the class-level comment above), day-mode only (pure decoration,
-    // doesn't survive into Always-On). The banner asset is a fixed 220x52
-    // canvas - far larger than the box - so it's contain-fit scaled down via
-    // Dc.drawScaledBitmap (through HudDraw.drawBitmapScaledCentered)
-    // rather than force-stretched, which would visibly distort the
-    // wing/text artwork since the box's aspect ratio doesn't match the
-    // source asset's.
-    private function drawTitleBanner(dc as Graphics.Dc) as Void {
-        var cx = TITLE_BOX_X + (TITLE_BOX_W / 2.0);
+    // V6: the AH-64E title banner was a baked bitmap (Rez.Drawables.
+    // BannerAh64e, a Python-generated PNG with the literal text "AH-64E"
+    // and flanking wing-feather artwork) - can't reflect a user-editable
+    // string, so it's gone. Replaced with live vector text
+    // (Fonts.headerFont(), the existing FACE_STENCIL/leagueGothic header
+    // face) reading the new `airframe` string property (default "AH-64E"),
+    // plus a small flanking-line flourish in the same language
+    // drawFooter() already uses - simplified rather than trying to keep
+    // bitmap wing art with a now-configurable string baked into it.
+    // Day-mode only (pure decoration, doesn't survive into Always-On) -
+    // unchanged from before.
+    //
+    // Length is defensively clamped (not just relying on the settings.xml
+    // maxLength) and the flourish is capped/skipped against
+    // TITLE_MAX_HALF_W so a long user-supplied name can never push this
+    // row's content past the bezel-safe half-width at this tight,
+    // near-top-pole Y - verified against a forced worst-case string.
+    private function drawTitleBanner(dc as Graphics.Dc, textColor as Number) as Void {
+        var airframe = Properties.getValue("airframe") as String?;
+        if (airframe == null || airframe.length() == 0) {
+            airframe = "AH-64E";
+        }
+        if (airframe.length() > 10) {
+            airframe = airframe.substring(0, 10);
+        }
+
+        var font = Fonts.headerFont();
         var cy = TITLE_BOX_Y + (TITLE_BOX_H / 2.0);
-        HudDraw.drawBitmapScaledCentered(dc, cx, cy, _bannerAh64e, BANNER_W, BANNER_H, TITLE_BOX_W, TITLE_BOX_H);
+        dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(TITLE_CX, cy, font, airframe, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+
+        var dims = dc.getTextDimensions(airframe, font);
+        var halfW = dims[0] / 2.0;
+        var inner = halfW + 4.0;
+        var outer = inner + 8.0;
+        if (outer > TITLE_MAX_HALF_W) {
+            outer = TITLE_MAX_HALF_W;
+        }
+        if (outer > inner) {
+            dc.drawLine(TITLE_CX - outer, cy, TITLE_CX - inner, cy);
+            dc.drawLine(TITLE_CX + inner, cy, TITLE_CX + outer, cy);
+        }
     }
 
     // Battery box is the one field whose color can dynamically swap to
@@ -379,8 +474,6 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     // the box's bottom), so icon and value read as two clearly separated
     // rows instead of a label+icon+value crowded into one.
     private function drawBatteryBox(dc as Graphics.Dc, battery as Float, battColor as Number) as Void {
-        HudDraw.drawPanel(dc, BATT_BOX_X, BATT_BOX_Y, BATT_BOX_W, BATT_BOX_H, battColor);
-
         var iconCX = BATT_BOX_X + (BATT_BOX_W / 2.0);
         var iconCY = BATT_BOX_Y + 13.0; // client: "move the battery up 1 pixel" (was +14)
         var battChrome = _isSleeping ? _iconBatteryChromeAod : _iconBatteryChromeDay;
@@ -400,9 +493,7 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     // where the label used to sit - the same icon-on-top/value-below
     // structure the battery box already uses (this also resolves the
     // visual inconsistency flagged after that pass: both boxes now match).
-    private function drawHeartRateBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
-        HudDraw.drawPanel(dc, HR_BOX_X, HR_BOX_Y, HR_BOX_W, HR_BOX_H, panelColor);
-
+    private function drawHeartRateBox(dc as Graphics.Dc, textColor as Number) as Void {
         var iconCX = HR_BOX_X + (HR_BOX_W / 2.0);
         var iconCY = HR_BOX_Y + 14.0;
         var heartIcon = _isSleeping ? _iconHeartAod : _iconHeartDay;
@@ -438,9 +529,7 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     // combination, without needing to touch where seconds themselves land.
     private const TIME_ANCHOR_SHIFT_PX = 5.0;
 
-    private function drawClockBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
-        HudDraw.drawPanel(dc, CLOCK_BOX_X, CLOCK_BOX_Y, CLOCK_BOX_W, CLOCK_BOX_H, panelColor);
-
+    private function drawClockBox(dc as Graphics.Dc, textColor as Number) as Void {
         var boxCX = CLOCK_BOX_X + (CLOCK_BOX_W / 2.0);
         var cy = CLOCK_BOX_Y + (CLOCK_BOX_H / 2.0);
         var timeCX = boxCX - TIME_ANCHOR_SHIFT_PX;
@@ -474,9 +563,7 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         }
     }
 
-    private function drawStepsBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
-        HudDraw.drawPanel(dc, STEPS_BOX_X, STEPS_BOX_Y, STEPS_BOX_W, STEPS_BOX_H, panelColor);
-
+    private function drawStepsBox(dc as Graphics.Dc, textColor as Number) as Void {
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
         // client: "move the STP over to be centered as well"
         dc.drawText(STEPS_BOX_X + (STEPS_BOX_W / 2.0), STEPS_BOX_Y + 2.0, Fonts.labelsFont(), "STP",
@@ -498,9 +585,7 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
             Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    private function drawSolarBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
-        HudDraw.drawPanel(dc, SOLAR_BOX_X, SOLAR_BOX_Y, SOLAR_BOX_W, SOLAR_BOX_H, panelColor);
-
+    private function drawSolarBox(dc as Graphics.Dc, textColor as Number) as Void {
         var contentY = SOLAR_BOX_Y + (SOLAR_BOX_H * 0.66);
         var label = "--:--";
         var isRise = true;
@@ -542,9 +627,7 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
             Graphics.TEXT_JUSTIFY_RIGHT | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    private function drawDateBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
-        HudDraw.drawPanel(dc, DATE_BOX_X, DATE_BOX_Y, DATE_BOX_W, DATE_BOX_H, panelColor);
-
+    private function drawDateBox(dc as Graphics.Dc, textColor as Number) as Void {
         var info = Gregorian.info(Time.now(), Time.FORMAT_SHORT);
         var dayName = DAY_ABBREV[info.day_of_week];
         var ddMm = Properties.getValue("dateFormatDDMM") as Number;
@@ -559,6 +642,30 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         dc.drawText(cx, cy, Fonts.dateFont(), dayName + " " + dateNums, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
+    // V6 task 4: Timezone 2 (west-coast/Pacific by default), configurable
+    // via the new `timezone2` list setting. There is no public Connect IQ
+    // API for the watch's native "Time Zone 2" device setting (confirmed
+    // against the local SDK docs - ClockTime.timeZoneOffset only exposes
+    // the PRIMARY zone), so this is entirely our own setting + DST math -
+    // see TzCalc.mc. Sits beside the primary date, split by a thin
+    // vertical divider instead of a second box, per task 1.
+    private function drawTz2Box(dc as Graphics.Dc, textColor as Number) as Void {
+        var zoneId = Properties.getValue("timezone2") as Number?;
+        if (zoneId == null) {
+            zoneId = TzCalc.ZONE_PACIFIC;
+        }
+
+        var hourMinute = TzCalc.currentHourMinute(zoneId);
+        var timeStr = Lang.format("$1$:$2$", [hourMinute[0].format("%02d"), hourMinute[1].format("%02d")]);
+        var label = TzCalc.zoneLabel(zoneId);
+
+        var cx = TZ2_BOX_X + (TZ2_BOX_W / 2.0);
+        var cy = TZ2_BOX_Y + (TZ2_BOX_H / 2.0);
+
+        dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(cx, cy, Fonts.dateFont(), timeStr + " " + label, Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+    }
+
     // Weather gets its own dedicated box in V2 (superseding V1's combined
     // WX+BT/notification row). V3: the "WX" text label is removed (client
     // feedback, same pattern as the earlier PWR/HR label removals - the
@@ -569,9 +676,7 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     // weather icon: its left inset shrank from 22px to 8px, shifting it left
     // into that freed space and opening up real breathing room between the
     // icon and the temperature text rather than leaving the space empty.
-    private function drawWeatherBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
-        HudDraw.drawPanel(dc, WX_BOX_X, WX_BOX_Y, WX_BOX_W, WX_BOX_H, panelColor);
-
+    private function drawWeatherBox(dc as Graphics.Dc, textColor as Number) as Void {
         var cy = WX_BOX_Y + (WX_BOX_H / 2.0);
 
         var fullBucket = HudDraw.mapConditionToBucket(_cache.weatherCondition);
@@ -668,8 +773,24 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     // Small centered callsign banner with a short tactical flourish tick on
     // each side - kept in both modes (it's static chrome, same cost as the
     // panel borders, not a per-second animation).
+    //
+    // V6 task 5: "BRAVO-4" was hardcoded - now reads the `squad` string
+    // property (default "BRAVO-4") so any soldier can rename it via the
+    // Garmin Connect Mobile companion app, no recompile. Defensively
+    // clamped to 8 chars and the flourish outer extent is capped against
+    // FOOTER_MAX_HALF_W (this row sits right at the bottom pole, the
+    // tightest bezel margin on the face - see the constant's own comment)
+    // so a long user-supplied callsign can never push the flourish past
+    // the bezel-safe edge.
     private function drawFooter(dc as Graphics.Dc, textColor as Number) as Void {
-        var text = "BRAVO-4";
+        var text = Properties.getValue("squad") as String?;
+        if (text == null || text.length() == 0) {
+            text = "BRAVO-4";
+        }
+        if (text.length() > 8) {
+            text = text.substring(0, 8);
+        }
+
         var font = Fonts.footerFont();
         var dims = dc.getTextDimensions(text, font);
         var cy = FOOTER_Y + (FOOTER_H / 2.0);
@@ -679,9 +800,14 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
 
         var flourishInner = (dims[0] / 2.0) + 6.0;
         var flourishOuter = flourishInner + 10.0;
+        if (flourishOuter > FOOTER_MAX_HALF_W) {
+            flourishOuter = FOOTER_MAX_HALF_W;
+        }
         dc.setPenWidth(1);
-        dc.drawLine(FOOTER_CX - flourishOuter, cy, FOOTER_CX - flourishInner, cy);
-        dc.drawLine(FOOTER_CX + flourishInner, cy, FOOTER_CX + flourishOuter, cy);
+        if (flourishOuter > flourishInner) {
+            dc.drawLine(FOOTER_CX - flourishOuter, cy, FOOTER_CX - flourishInner, cy);
+            dc.drawLine(FOOTER_CX + flourishInner, cy, FOOTER_CX + flourishOuter, cy);
+        }
     }
 
     private function formatTemperature(celsius as Numeric?) as String {
