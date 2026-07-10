@@ -61,14 +61,21 @@ module Fonts {
         if (_time == null) {
             // Client feedback: clock font down 2px (35 -> 33) as part of a
             // pass that also narrowed the clock box's left/right margins.
-            _time = load(FACE_NUMERIC, 33, Graphics.FONT_NUMBER_MEDIUM);
+            // V5: client wants it a size larger - bumped back up, past the
+            // original 35, to 37. (First tried 40 - a forced "88:88"
+            // worst-case screenshot showed it actually colliding with
+            // seconds, so backed off to 37 and paired with a smaller
+            // seconds font below, re-verified clean at the same worst case.)
+            _time = load(FACE_NUMERIC, 37, Graphics.FONT_NUMBER_MEDIUM);
         }
         return _time as Graphics.FontType;
     }
 
     function secondsFont() as Graphics.FontType {
         if (_seconds == null) {
-            _seconds = load(FACE_NUMERIC, 23, Graphics.FONT_NUMBER_MILD);
+            // V5: trimmed 23 -> 19 alongside the bigger time font, to keep
+            // clearance between them at the worst-case digit width.
+            _seconds = load(FACE_NUMERIC, 19, Graphics.FONT_NUMBER_MILD);
         }
         return _seconds as Graphics.FontType;
     }
@@ -96,9 +103,12 @@ module Fonts {
     // the battery box, not the shared metricsFont() (which HR/steps/solar
     // values also use).
     // V3: reduced 1 more px (12 -> 11) per the same ongoing request.
+    // V5: client - "still too big for the boxes" - dropped further (11 -> 9),
+    // verified against a forced "100%" worst-case string (see drawBatteryBox)
+    // rather than guessing another single-px nudge.
     function batteryValueFont() as Graphics.FontType {
         if (_batteryValue == null) {
-            _batteryValue = load(FACE_NUMERIC, 11, Graphics.FONT_SMALL);
+            _batteryValue = load(FACE_NUMERIC, 9, Graphics.FONT_XTINY);
         }
         return _batteryValue as Graphics.FontType;
     }
@@ -109,9 +119,10 @@ module Fonts {
     // 1 point" - scoped to just the Weather box's temp text, same reasoning
     // as batteryValueFont() (metricsFont() is shared with HR/steps/solar
     // values, which weren't asked to shrink).
+    // V5: client - "still too big for the boxes" - dropped further (12 -> 10).
     function tempValueFont() as Graphics.FontType {
         if (_tempValue == null) {
-            _tempValue = load(FACE_NUMERIC, 12, Graphics.FONT_SMALL);
+            _tempValue = load(FACE_NUMERIC, 10, Graphics.FONT_XTINY);
         }
         return _tempValue as Graphics.FontType;
     }

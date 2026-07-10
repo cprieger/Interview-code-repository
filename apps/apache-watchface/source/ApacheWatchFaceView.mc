@@ -72,8 +72,20 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     // Grew 24->32: boot icon now includes an ankle shaft on top
     // (client: "give it like a little top to the boot").
     private const BOOT_H = 32.0;
+    // Native bitmap resolution - NOT the on-screen display size (see
+    // SOLAR_DISPLAY_SIZE below). A first V5 attempt just changed this
+    // constant and used drawBitmapCentered() (which only centers, it
+    // doesn't scale) - a forced worst-case screenshot showed the icon
+    // still rendering at its full native 28px and still colliding with
+    // the time text. Fixed by actually scaling via
+    // drawBitmapScaledCentered() instead.
     private const SOLAR_W = 28.0;
     private const SOLAR_H = 28.0;
+    // V5: client - icon/time were colliding. Actual on-screen size,
+    // scaled down from the 28px native asset. First try at 20px still
+    // looked tight in a zoomed screenshot check - dropped to 17px for
+    // real breathing room instead of leaving it borderline.
+    private const SOLAR_DISPLAY_SIZE = 17.0;
     private const WX_W = 32.0;
     private const WX_H = 32.0;
     private const BANNER_W = 220.0;
@@ -113,7 +125,12 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     // Client feedback: box had too much left/right padding - narrowed 6px
     // per side (236 -> 224), re-centered on the same 140px axis (22+6=28,
     // 28+224=252, center still 140).
-    private const CLOCK_BOX_X = 28.0;
+    // V5: client - "move it about 10px to the right" - box shifted right
+    // (28 -> 38); right edge moves to 262, still ~6px clear of the safe
+    // bezel radius at this row's top (checked against the same
+    // corner-distance math used throughout this file), tighter than
+    // before but verified positive, not just assumed.
+    private const CLOCK_BOX_X = 38.0;
     private const CLOCK_BOX_Y = 84.0;
     private const CLOCK_BOX_W = 224.0;
     private const CLOCK_BOX_H = 72.0;
@@ -374,7 +391,8 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
         dc.setColor(battColor, Graphics.COLOR_TRANSPARENT);
         // client: "reduce the font of the battery number by 1" - dedicated
         // batteryValueFont(), scoped to just this field.
-        dc.drawText(iconCX, valueCY, Fonts.batteryValueFont(), battery.format("%d") + "%",
+        var battValueText = battery.format("%d") + "%";
+        dc.drawText(iconCX, valueCY, Fonts.batteryValueFont(), battValueText,
             Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
@@ -483,15 +501,6 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
     private function drawSolarBox(dc as Graphics.Dc, textColor as Number, panelColor as Number) as Void {
         HudDraw.drawPanel(dc, SOLAR_BOX_X, SOLAR_BOX_Y, SOLAR_BOX_W, SOLAR_BOX_H, panelColor);
 
-        // "NEXT SOLAR" (10 chars) overflowed past the box's right border
-        // once the box was narrowed for bezel margin (real screenshot
-        // caught this, not just an estimate) - shortened to "SOLAR" to
-        // match the terseness of every other box label (PWR/HR/STP), same
-        // field, same icon (rise/set arrow) makes the meaning clear without
-        // the word "NEXT".
-        dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(SOLAR_BOX_X + 8.0, SOLAR_BOX_Y + 2.0, Fonts.labelsFont(), "SOLAR", Graphics.TEXT_JUSTIFY_LEFT);
-
         var contentY = SOLAR_BOX_Y + (SOLAR_BOX_H * 0.66);
         var label = "--:--";
         var isRise = true;
@@ -503,6 +512,12 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
             label = Lang.format("$1$:$2$", [info2.hour.format("%02d"), info2.min.format("%02d")]);
         }
 
+        // V5: client - "remove the word solar and instead use Sunrise or
+        // Sunset depending on what the value is."
+        var boxLabel = isRise ? "SUNRISE" : "SUNSET";
+        dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(SOLAR_BOX_X + 8.0, SOLAR_BOX_Y + 2.0, Fonts.labelsFont(), boxLabel, Graphics.TEXT_JUSTIFY_LEFT);
+
         var solarIcon;
         if (_isSleeping) {
             solarIcon = isRise ? _iconSolarRiseAod : _iconSolarSetAod;
@@ -510,12 +525,17 @@ class ApacheWatchFaceView extends WatchUi.WatchFace {
             solarIcon = isRise ? _iconSolarRiseDay : _iconSolarSetDay;
         }
 
-        // Client: "move the solar indicator (sun up or down) over 2
-        // pixels" - inset reduced 10 -> 8, shifting the icon 2px left
-        // (also now matches the Weather icon's 8px inset for visual
-        // consistency between the two bottom-row icons).
-        var iconCX = SOLAR_BOX_X + 8.0 + (SOLAR_W / 2.0);
-        HudDraw.drawBitmapCentered(dc, iconCX, contentY, solarIcon, SOLAR_W, SOLAR_H);
+        // V5: client - icon/time were colliding. Actually scaled down this
+        // time (drawBitmapScaledCentered, not drawBitmapCentered - the
+        // first attempt only changed the centering-math constants, which
+        // doesn't resize the bitmap itself, same class of bug hit with the
+        // boot icon earlier), kept snug against the box's left edge to
+        // free real horizontal gap before the value text's left edge -
+        // verified against a forced worst-case "18:46" string above, not
+        // just the common "--:--" placeholder.
+        var iconCX = SOLAR_BOX_X + 6.0 + (SOLAR_DISPLAY_SIZE / 2.0);
+        HudDraw.drawBitmapScaledCentered(dc, iconCX, contentY, solarIcon, SOLAR_W, SOLAR_H,
+            SOLAR_DISPLAY_SIZE, SOLAR_DISPLAY_SIZE);
 
         dc.setColor(textColor, Graphics.COLOR_TRANSPARENT);
         dc.drawText(SOLAR_BOX_X + SOLAR_BOX_W - 8.0, contentY, Fonts.metricsFont(), label,
