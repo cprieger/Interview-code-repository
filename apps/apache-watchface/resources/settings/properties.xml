@@ -5,4 +5,21 @@
          labeled DD/MM vs MM/DD picker in settings.xml) isn't valid on a
          boolean-typed property. -->
     <property id="dateFormatDDMM" type="number">1</property>
+
+    <!-- V6: Timezone 2 zone picker (see source/TzCalc.mc for the DST math -
+         Connect IQ has no public API to read the watch's native "Time Zone
+         2" device setting, so this is our own setting). 0=Pacific (default),
+         1=Mountain, 2=Central, 3=Eastern, 4=Alaska, 5=Hawaii, 6=UTC - must
+         stay in sync with TzCalc.ZONE_* and settings.xml's listEntry values. -->
+    <property id="timezone2" type="number">0</property>
+
+    <!-- V6: soldier-editable via Garmin Connect Mobile (settings.xml
+         alphaNumeric type), no recompile needed. Replaces the old baked
+         "AH-64E" bitmap banner / hardcoded "BRAVO-4" footer string, since
+         this is heading toward a public/store listing for other users, not
+         just one client. Defensively re-clamped in code
+         (ApacheWatchFaceView.drawTitleBanner/drawFooter) even though
+         settings.xml's maxLength should already prevent a longer value. -->
+    <property id="airframe" type="string">AH-64E</property>
+    <property id="squad" type="string">BRAVO-4</property>
 </properties>

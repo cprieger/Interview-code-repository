@@ -273,84 +273,13 @@ def wx_storm(color, size=32, name="wx_storm"):
     finish(img, size, size, name)
 
 
-def _feather(d, base, angle, length, width, sign, fill, outline, outline_w):
-    """One tapered feather lobe (rounded base, pointed tip), with a black
-    outline drawn as a slightly-enlarged silhouette underneath - the
-    "draw twice" outline trick, since Pillow's polygon() doesn't support
-    a stroke width."""
-    dx, dy = sign * math.cos(angle) * length, math.sin(angle) * length
-    px, py = -dy, dx
-    norm = math.hypot(px, py) or 1
-    px, py = px / norm, py / norm
-    tip = (base[0] + dx, base[1] + dy)
-    bulge_t = 0.32
-    bulge = (base[0] + dx * bulge_t, base[1] + dy * bulge_t)
-    b1 = (bulge[0] + px * width / 2, bulge[1] + py * width / 2)
-    b2 = (bulge[0] - px * width / 2, bulge[1] - py * width / 2)
-    r1 = (base[0] + px * width * 0.18, base[1] + py * width * 0.18)
-    r2 = (base[0] - px * width * 0.18, base[1] - py * width * 0.18)
-    pts = [r1, b1, tip, b2, r2]
-
-    if outline_w > 0:
-        cx = sum(p[0] for p in pts) / len(pts)
-        cy = sum(p[1] for p in pts) / len(pts)
-        big = []
-        for x, y in pts:
-            vx, vy = x - cx, y - cy
-            n = math.hypot(vx, vy) or 1
-            big.append((x + vx / n * outline_w, y + vy / n * outline_w))
-        d.polygon(big, fill=outline)
-    d.polygon(pts, fill=fill)
-
-
-def _feather_wing(d, root, span_len, span_h, color, outline_color, mirror):
-    """US Army Aviator-wings style: several overlapping tapered feather
-    lobes fanning from near-horizontal (root) to steep upward (tip), each
-    with a black outline - the layered, outlined look of the actual
-    insignia, not a smooth bird-wing curve or plain geometric bars (both
-    tried already this session and rejected)."""
-    rx, ry = root
-    sign = -1 if mirror else 1
-    n_feathers = 7
-    outline_w = span_h * 0.055
-    for i in range(n_feathers):
-        t = i / (n_feathers - 1)  # 0 = root-adjacent (bottom), 1 = tip (top)
-        angle = -0.05 - t * 1.10
-        length = span_len * (0.55 + t * 0.55)
-        width = span_h * (0.34 - t * 0.12)
-        base_y_off = span_h * 0.42 - t * span_h * 0.80
-        base = (rx, ry + base_y_off)
-        _feather(d, base, angle, length, width, sign, color, outline_color, outline_w)
-
-
-# ----------------------------------------------------------------- banner
-def ah64e_banner(w=220, h=52, name="ah64e_banner"):
-    img, d, W, H = canvas(w, h)
-    font_path = "C:/Windows/Fonts/impact.ttf"
-    text = "AH-64E"
-
-    text_budget = W * 0.56
-    pt = int(H * 0.58)
-    font = ImageFont.truetype(font_path, pt)
-    bbox = d.textbbox((0, 0), text, font=font)
-    tw = bbox[2] - bbox[0]
-    if tw > text_budget:
-        pt = max(8, int(pt * (text_budget / tw)))
-        font = ImageFont.truetype(font_path, pt)
-        bbox = d.textbbox((0, 0), text, font=font)
-        tw = bbox[2] - bbox[0]
-
-    cx, cy = W / 2, H / 2
-    d.text((cx, cy), text, font=font, fill=DAY_GREEN, anchor="mm")
-
-    wing_root_y = cy + H * 0.02
-    span_len = W * 0.22
-    span_h = H * 0.62
-    black = (10, 15, 10, 255)
-    _feather_wing(d, (cx - tw / 2 - W * 0.02, wing_root_y), span_len, span_h, DAY_GREEN, black, mirror=True)
-    _feather_wing(d, (cx + tw / 2 + W * 0.02, wing_root_y), span_len, span_h, DAY_GREEN, black, mirror=False)
-    finish(img, w, h, name)
-
+# V6: the AH-64E banner bitmap (ah64e_banner(), and the _feather/
+# _feather_wing helpers that drew its wing artwork) is gone - the client
+# watch face now renders the airframe name as live vector text from a
+# user-editable string property (source/Fonts.headerFont(), see
+# ApacheWatchFaceView.drawTitleBanner()) instead of a baked bitmap with the
+# literal "AH-64E" text drawn into it, since a static bitmap can't reflect
+# an editable string. See CHANGELOG.md's V6 entry for the full reasoning.
 
 # --------------------------------------------------------- bluetooth icon
 def bluetooth(color, size=22, name="bluetooth"):
@@ -418,9 +347,6 @@ if __name__ == "__main__":
     wx_storm(DAY_GREEN, name="wx_storm_day")
     wx_clear(AOD_GREEN, name="wx_clear_aod")
     wx_overcast(AOD_GREEN, name="wx_overcast_aod")
-
-    print("Banner:")
-    ah64e_banner()
 
     print("Status icons:")
     bluetooth(DAY_GREEN, name="bluetooth_day")
