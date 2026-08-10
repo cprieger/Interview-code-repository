@@ -1,3 +1,12 @@
+## 2026-08-09
+
+- Repository cleanup — consolidated outstanding local work onto one branch (`cprieger/overdue-cleanup`) and fixed the ignore rules that were blocking it:
+  - `.gitignore` — the file only covered Go and editors. Added Python (`__pycache__/`, `*.py[cod]`, `.venv/`, `venv/`, `*.egg-info/`, tool caches), Connect IQ root-level build output (`*.prg`, `*.prg.debug.xml`, `*.iq`, `*.mir`, `gen/` — `bin/` already covered the normal path), Node, and Claude Code per-machine state (`.claude/settings.local.json`, `.claude/worktrees/`; `.claude/agents/` stays tracked). Secret-shaped files (`*.pem`, `*.key`, `id_rsa*`, `credentials.json`) and all `*.db`/`*.sqlite*` are now ignored, with `.env.example` explicitly re-included so credential templates stay tracked. Without this, committing `apps/eve-deals` would have pulled ~34MB of `.venv` into history, and a local `eve_deals.db` would have carried live EVE SSO access/refresh tokens with it.
+  - `apps/fantasy-watchface/` — committed for the first time. A complete Connect IQ watch face for the fenix 7X Pro Sapphire Solar ("Etched Stone / Glowing Rune" parchment-map theme) that existed only as untracked working-tree files, on no branch and with no backup: 9 Monkey C sources, 28 day/AOD HUD bitmaps, settings/strings resources, two Pillow asset generators, and an app-scoped `CLAUDE.md`.
+  - `apps/eve-deals/` — committed for the first time. Local Flask app that authenticates via EVE SSO and scans public item-exchange contracts for deals priced below a trimmed-mean fair value. Source only; virtualenv, bytecode cache, and token database excluded.
+  - Branch reconciliation: **all ten local branches held zero commits not already in `origin/main`** — the V6 pass, which looked unique against a stale local ref, had already landed via PR #10 on 2026-08-08. Nothing needed salvaging from any branch; the only unreconciled work in the repo was the two uncommitted app directories above. All ten branches are now redundant and safe to delete.
+  - Secrets audit over both new apps and the V6 commit: no credential values, key material, tokens, or `.env` files found. `eve_deals/config.py` reads everything from the environment; `.env.example` ships empty placeholders only. Nothing required redaction.
+
 ## 2026-07-10 (2)
 
 - V6 pass on `apps/apache-watchface` (new branch `cprieger/apache-watchface-v6`, branched fresh off `main` per this app's own versioning convention, not more commits on the old `add-apache-watchface`/PR #9 branch) — store-publishable rework: customizable fields for other soldiers, boxes removed, plus concrete fixes:
@@ -80,6 +89,17 @@
   - `source/ColorScheme.mc` — white/cyan/yellow/red day palette vs. monochrome Always-On palette.
   - `resources/` — DD/MM vs MM/DD date-format setting, launcher icon (generated via `tools/generate_launcher_icon.py`).
   - `README.md` — Connect IQ SDK/VS Code local setup, build, sideload, and Connect IQ Store publishing steps, plus flagged unknowns (device id string, API constants) to verify on first build since the SDK wasn't available to compile-test in this environment.
+
+## 2026-07-05
+
+- Added new standalone app `apps/eve-deals/` — EVE Online contract deal finder:
+  - Local Flask web app using EVE SSO (OAuth2) to identify the logged-in character and their current solar system (`eve_deals/sso.py`, `eve_deals/config.py`).
+  - `eve_deals/esi_client.py` — wraps public/authenticated ESI calls: character location, universe systems/constellations/stations/structures, public contracts (paginated), contract items, market orders.
+  - `eve_deals/universe.py` — resolves station/structure → system → region and system name → id, cached in SQLite (`eve_deals/db.py`) since universe data never changes.
+  - `eve_deals/pricing.py` — trimmed-mean fair value: drops the highest and lowest sell-order price per item (unless only one exists) before averaging, so a single junk listing can't skew the reference price.
+  - `eve_deals/poll.py` — orchestrates a poll: locate character → resolve home + reference system regions → pull public contracts → filter to the target systems → price item-exchange contracts → save deals beating a discount threshold.
+  - `app.py` + `templates/index.html` + `static/app.js` — minimal vanilla-JS frontend: login button, reference-system input, Poll button, results table.
+  - `README.md` — SSO app registration steps, local setup, and how the pricing/filtering works.
 
 ## 2026-03-02 (4)
 

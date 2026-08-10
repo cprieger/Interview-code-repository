@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>EVE Deals Finder</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <h1>EVE Deals Finder</h1>
+
+  {% if not tokens %}
+    <p>Find item-exchange contracts priced well below market value in your current system and a reference system.</p>
+    <a class="button" href="/auth/login">Login with EVE Online</a>
+  {% else %}
+    <p>Logged in as <strong>{{ tokens.character_name }}</strong></p>
+
+    <div class="poll-panel">
+      <label for="reference_system">Reference system</label>
+      <input type="text" id="reference_system" placeholder="e.g. Jita" value="Jita">
+      <button id="poll-button">Poll</button>
+      <span id="status"></span>
+    </div>
+
+    <table id="deals-table">
+      <thead>
+        <tr>
+          <th>System</th>
+          <th>Title</th>
+          <th>Price</th>
+          <th>Fair Value</th>
+          <th>Discount %</th>
+          <th>Items</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  {% endif %}
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

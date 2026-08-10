@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Connect IQ application manifest.
+
+  id (application UUID) below is a randomly generated placeholder GUID,
+  fine for local sideloading. If you later create a listing in the
+  Connect IQ Store developer portal, replace it with the App ID the
+  portal issues you. Distinct from apps/apache-watchface's id - these are
+  two separate apps, not versions of the same one.
+-->
+<iq:manifest xmlns:iq="http://www.garmin.com/xml/connectiq" version="3">
+    <iq:application
+        id="cce60363-1b9b-406d-8bb9-d663d557130f"
+        type="watchface"
+        name="@Strings.AppName"
+        entry="FantasyWatchFaceApp"
+        launcherIcon="@Drawables.LauncherIcon"
+        minApiLevel="3.4.0">
+
+        <iq:products>
+            <!-- fenix 7X Pro (WiFi-enabled variant) -->
+            <iq:product id="fenix7xpro"/>
+            <!-- fenix 7X Pro Sapphire Solar Edition (original no-WiFi solar SKU) -->
+            <iq:product id="fenix7xpronowifi"/>
+        </iq:products>
+
+        <iq:permissions>
+            <!-- Needed for Weather.getSunrise/getSunset (location-based solar events) -->
+            <iq:uses-permission id="Positioning"/>
+        </iq:permissions>
+
+        <iq:languages>
+            <iq:language>eng</iq:language>
+        </iq:languages>
+
+        <iq:barrels/>
+    </iq:application>
+</iq:manifest>

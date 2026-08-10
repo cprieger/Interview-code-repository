@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<settings>
+    <setting propertyKey="@Properties.dateFormatDDMM" title="@Strings.SettingDateFormatTitle">
+        <settingConfig type="list">
+            <listEntry value="1">@Strings.SettingDateFormatDDMM</listEntry>
+            <listEntry value="0">@Strings.SettingDateFormatMMDD</listEntry>
+        </settingConfig>
+    </setting>
+
+    <!-- Timezone 2 picker - see source/TzCalc.mc for why this can't just
+         read a device setting. Values must match TzCalc.ZONE_*. Ported
+         from apache-watchface V6 unchanged. -->
+    <setting propertyKey="@Properties.timezone2" title="@Strings.SettingTimezone2Title">
+        <settingConfig type="list">
+            <listEntry value="0">@Strings.SettingTz2Pacific</listEntry>
+            <listEntry value="1">@Strings.SettingTz2Mountain</listEntry>
+            <listEntry value="2">@Strings.SettingTz2Central</listEntry>
+            <listEntry value="3">@Strings.SettingTz2Eastern</listEntry>
+            <listEntry value="4">@Strings.SettingTz2Alaska</listEntry>
+            <listEntry value="5">@Strings.SettingTz2Hawaii</listEntry>
+            <listEntry value="6">@Strings.SettingTz2Utc</listEntry>
+        </settingConfig>
+    </setting>
+
+    <!-- Free-text footer, edited via the Garmin Connect Mobile companion
+         app. No airframe/banner setting in this app - the top title is
+         gone entirely (task: "remove the AH-64E"), only the footer
+         callsign carries over from apache-watchface. -->
+    <setting propertyKey="@Properties.squad" title="@Strings.SettingSquadTitle">
+        <settingConfig type="alphaNumeric" maxLength="8"/>
+    </setting>
+</settings>

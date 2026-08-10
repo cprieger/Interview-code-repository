@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<strings>
+    <string id="AppName">Fantasy Watchface</string>
+    <string id="SettingDateFormatTitle">Date Format</string>
+    <string id="SettingDateFormatDDMM">DD/MM</string>
+    <string id="SettingDateFormatMMDD">MM/DD</string>
+
+    <string id="SettingTimezone2Title">Timezone 2</string>
+    <string id="SettingTz2Pacific">Pacific</string>
+    <string id="SettingTz2Mountain">Mountain</string>
+    <string id="SettingTz2Central">Central</string>
+    <string id="SettingTz2Eastern">Eastern</string>
+    <string id="SettingTz2Alaska">Alaska</string>
+    <string id="SettingTz2Hawaii">Hawaii</string>
+    <string id="SettingTz2Utc">UTC</string>
+
+    <string id="SettingSquadTitle">Squad / Callsign</string>
+</strings>

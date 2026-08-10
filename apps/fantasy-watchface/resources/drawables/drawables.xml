@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<drawables>
+    <bitmap id="LauncherIcon" filename="launcher_icon.png"/>
+
+    <!-- The one resource this whole memory budget revolves around - see
+         tools/generate_background.py's module docstring for the full
+         derivation. RGB222 devices (this one included, pixelFormat
+         ARGB2222 per compiler.json) import EVERY bitmap at full 8bpp by
+         default regardless of how few colors the source PNG actually
+         uses - the <palette> block below is what actually forces a
+         smaller pack (11 colors, disableTransparency -> 4bpp, ~39.2KB
+         instead of ~76.6KB at 8bpp for this 280x280 image). SEPARATELY,
+         and just as important: this device's hardware is RGB222 (only 64
+         real colors, 4 levels/channel - 0/85/170/255), so every hex value
+         below is deliberately chosen to already sit exactly on that grid
+         (confirmed by an actual simulator screenshot after a first,
+         off-grid palette rendered the parchment bright pink instead of
+         tan - see the Python script's module docstring for the full
+         story). These 11 hex colors MUST stay in exact sync with the
+         PALETTE list in tools/generate_background.py - anything drawn
+         there that isn't declared here gets silently snapped to the
+         nearest color that is. -->
+    <bitmap id="BackgroundMap" filename="hud/background_map.png" dithering="none">
+        <palette disableTransparency="true">
+            <color>FFFFAA</color>
+            <color>FFAA55</color>
+            <color>AA5500</color>
+            <color>AAAA55</color>
+            <color>550000</color>
+            <color>555500</color>
+            <color>005500</color>
+            <color>00AAAA</color>
+            <color>0055AA</color>
+            <color>FFFFFF</color>
+            <color>000000</color>
+        </palette>
+    </bitmap>
+
+    <bitmap id="IconPotionGlassDay" filename="hud/potion_glass_day.png"/>
+    <bitmap id="IconPotionGlassAod" filename="hud/potion_glass_aod.png"/>
+
+    <bitmap id="IconHeartDay" filename="hud/heart_day.png"/>
+    <bitmap id="IconHeartAod" filename="hud/heart_aod.png"/>
+
+    <bitmap id="IconBootDay" filename="hud/boot_day.png"/>
+    <bitmap id="IconBootAod" filename="hud/boot_aod.png"/>
+
+    <bitmap id="IconSolarRiseDay" filename="hud/solar_rise_day.png"/>
+    <bitmap id="IconSolarSetDay" filename="hud/solar_set_day.png"/>
+    <bitmap id="IconSolarRiseAod" filename="hud/solar_rise_aod.png"/>
+    <bitmap id="IconSolarSetAod" filename="hud/solar_set_aod.png"/>
+
+    <bitmap id="IconWxClearDay" filename="hud/wx_clear_day.png"/>
+    <bitmap id="IconWxCloudyDay" filename="hud/wx_cloudy_day.png"/>
+    <bitmap id="IconWxOvercastDay" filename="hud/wx_overcast_day.png"/>
+    <bitmap id="IconWxRainDay" filename="hud/wx_rain_day.png"/>
+    <bitmap id="IconWxSnowDay" filename="hud/wx_snow_day.png"/>
+    <bitmap id="IconWxStormDay" filename="hud/wx_storm_day.png"/>
+    <bitmap id="IconWxClearAod" filename="hud/wx_clear_aod.png"/>
+    <bitmap id="IconWxOvercastAod" filename="hud/wx_overcast_aod.png"/>
+
+    <bitmap id="IconBluetoothDay" filename="hud/bluetooth_day.png"/>
+    <bitmap id="IconBluetoothAod" filename="hud/bluetooth_aod.png"/>
+    <bitmap id="IconBellDay" filename="hud/bell_day.png"/>
+    <bitmap id="IconBellAod" filename="hud/bell_aod.png"/>
+
+    <bitmap id="WallHDay" filename="hud/wall_h_day.png"/>
+    <bitmap id="WallHAod" filename="hud/wall_h_aod.png"/>
+    <bitmap id="WallVDay" filename="hud/wall_v_day.png"/>
+    <bitmap id="WallVAod" filename="hud/wall_v_aod.png"/>
+</drawables>

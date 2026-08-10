@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<properties>
+    <!-- 1 = DD/MM (e.g. "WED 08/07"), 0 = MM/DD (e.g. "WED 07/08") -->
+    <property id="dateFormatDDMM" type="number">1</property>
+
+    <!-- Timezone 2 zone picker (see source/TzCalc.mc for the DST math -
+         Connect IQ has no public API to read the watch's native "Time Zone
+         2" device setting, so this is our own setting). 0=Pacific (default),
+         1=Mountain, 2=Central, 3=Eastern, 4=Alaska, 5=Hawaii, 6=UTC - must
+         stay in sync with TzCalc.ZONE_* and settings.xml's listEntry values. -->
+    <property id="timezone2" type="number">0</property>
+
+    <!-- Footer callsign, editable via Garmin Connect Mobile. Kept from
+         apache-watchface V6 at the client's explicit request ("leave
+         Bravo-4 at the bottom") even though the rest of the theme changed -
+         no airframe/banner property in this app, the top title is gone. -->
+    <property id="squad" type="string">BRAVO-4</property>
+</properties>
