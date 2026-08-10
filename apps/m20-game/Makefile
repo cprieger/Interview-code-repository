@@ -9,7 +9,9 @@ MAIN         := cmd/server/main.go
 COVERAGE_OUT := coverage.out
 COVERAGE_HTML:= coverage.html
 
-.PHONY: build run test test-coverage test-html docker-up docker-down clean help
+VOXEL_DATA   := ../m20-voxel/data
+
+.PHONY: build run test test-coverage test-html docker-up docker-down clean help export-data export-check
 
 ## build: Compile the Go binary to bin/m20-game
 build:
@@ -42,6 +44,14 @@ docker-up:
 ## docker-down: Tear down all services
 docker-down:
 	docker compose down
+
+## export-data: Export canon resource tables to JSON for apps/m20-voxel
+export-data:
+	go run ./cmd/exportdata -out $(VOXEL_DATA)
+
+## export-check: Fail if the voxel data export is stale (CI guard)
+export-check:
+	go run ./cmd/exportdata -out $(VOXEL_DATA) -check
 
 ## clean: Remove build artifacts
 clean:

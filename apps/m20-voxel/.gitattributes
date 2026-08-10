@@ -1,0 +1,19 @@
+# Binary game assets — tracked in Git LFS.
+# Requires `git lfs install` once per machine; this file alone does nothing.
+
+*.vox           filter=lfs diff=lfs merge=lfs -text
+*.png           filter=lfs diff=lfs merge=lfs -text
+*.jpg           filter=lfs diff=lfs merge=lfs -text
+*.ogg           filter=lfs diff=lfs merge=lfs -text
+*.wav           filter=lfs diff=lfs merge=lfs -text
+*.mp3           filter=lfs diff=lfs merge=lfs -text
+*.glb           filter=lfs diff=lfs merge=lfs -text
+*.ttf           filter=lfs diff=lfs merge=lfs -text
+
+# Godot text resources stay as text so they diff and merge.
+*.gd            text eol=lf
+*.tscn          text eol=lf
+*.tres          text eol=lf
+*.godot         text eol=lf
+*.json          text eol=lf
+*.md            text eol=lf

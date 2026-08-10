@@ -1,0 +1,25 @@
+# Godot 4
+.godot/
+/android/
+*.translation
+
+# Exported builds
+/build/
+/bin/
+*.exe
+*.pck
+*.zip
+
+# Local world saves
+*.sqlite
+*.db
+/saves/
+
+# Asset generation scratch.
+# Renders are regenerable output — cite one in docs/img/ if it's evidence for a decision.
+/assets/scripts/__pycache__/
+/assets/renders/
+
+# NOTE: data/*.json is intentionally COMMITTED.
+# It's a build artifact of apps/m20-game/cmd/exportdata, but committing it means
+# the project opens and runs without a Go toolchain. `make export-check` guards staleness.
