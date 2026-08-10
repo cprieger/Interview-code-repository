@@ -1,25 +1,77 @@
-# Binaries
+# ---------------------------------------------------------------------------
+# Environment / secrets  (keep this first — most important)
+# ---------------------------------------------------------------------------
+.env
+*.env
+!*.env.example
+!.env.example
+*.pem
+*.key
+id_rsa*
+credentials.json
+
+# Local databases. eve-deals stores EVE SSO access/refresh tokens in SQLite,
+# so a committed .db would leak live credentials.
+*.db
+*.sqlite
+*.sqlite3
+
+# ---------------------------------------------------------------------------
+# Build output / binaries
+# ---------------------------------------------------------------------------
 bin/
 weather-api
 
-# Go test & coverage artifacts
+# Garmin Connect IQ build artifacts (compiler writes into bin/, but these can
+# also land at the app root depending on how the build is invoked).
+*.prg
+*.prg.debug.xml
+*.iq
+*.mir
+gen/
+
+# ---------------------------------------------------------------------------
+# Go
+# ---------------------------------------------------------------------------
 *.test
 coverage.out
 coverage.html
-
-# Go workspace
 vendor/
 
-# Environment / secrets
-.env
-*.env
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
 
+# ---------------------------------------------------------------------------
+# Node
+# ---------------------------------------------------------------------------
+node_modules/
+
+# ---------------------------------------------------------------------------
+# Claude Code local state
+# (.claude/agents/ IS tracked — only per-machine state is ignored here)
+# ---------------------------------------------------------------------------
+.claude/settings.local.json
+.claude/worktrees/
+
+# ---------------------------------------------------------------------------
 # Editor
+# ---------------------------------------------------------------------------
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS
+# ---------------------------------------------------------------------------
+# OS / misc
+# ---------------------------------------------------------------------------
 .DS_Store
 Thumbs.db
+*.stackdump
